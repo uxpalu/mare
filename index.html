@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maré — Protótipo do Bot WhatsApp</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #111b21;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 24px 16px;
+    gap: 24px;
+  }
+
+  /* PHONE FRAME */
+  .phone {
+    width: 380px;
+    min-height: 680px;
+    background: #0b141a;
+    border-radius: 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6);
+    flex-shrink: 0;
+  }
+  .header {
+    background: #202c33;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00a884, #006d5b);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .header-info { flex: 1; }
+  .header-name { color: #e9edef; font-size: 15px; font-weight: 600; }
+  .header-sub { color: #8696a0; font-size: 12px; }
+
+  .chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    background: #0b141a;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23182229' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .bubble {
+    max-width: 82%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.45;
+    position: relative;
+    animation: fadeIn .25s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+
+  .bubble.bot {
+    background: #202c33;
+    color: #e9edef;
+    border-radius: 0 8px 8px 8px;
+    align-self: flex-start;
+  }
+  .bubble.user {
+    background: #005c4b;
+    color: #e9edef;
+    border-radius: 8px 0 8px 8px;
+    align-self: flex-end;
+  }
+  .bubble.alerta {
+    background: #3d2b00;
+    border: 1px solid #c87000;
+    color: #ffd580;
+  }
+  .bubble pre {
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .card-title {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+    padding-bottom: 4px;
+  }
+
+  .spacer { height: 6px; }
+
+  .btns { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .btn {
+    background: #202c33;
+    color: #00a884;
+    border: 1px solid #2a3942;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+    width: 100%;
+  }
+  .btn:hover { background: #2a3942; }
+  .btn.danger { color: #ff6b6b; border-color: #5a2020; }
+
+  /* SIDE PANEL */
+  .panel {
+    width: 300px;
+    background: #1a1a2e;
+    border-radius: 16px;
+    padding: 20px;
+    color: #ccc;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-self: flex-start;
+    position: sticky;
+    top: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  }
+  .panel h3 { color: #e9edef; font-size: 14px; margin-bottom: 8px; }
+  .breadcrumb {
+    background: #0f0f1e;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #00a884;
+    line-height: 1.6;
+  }
+  .modules { display: flex; flex-direction: column; gap: 6px; }
+  .module { display: flex; align-items: center; gap: 8px; }
+  .mod-dot { width: 8px; height: 8px; border-radius: 50%; background: #00a884; flex-shrink:0; }
+  .tag {
+    display: inline-block;
+    background: #0f2027;
+    border: 1px solid #00a884;
+    color: #00a884;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    margin: 2px 2px 0 0;
+  }
+  .info-box {
+    background: #0f0f1e;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #aaa;
+  }
+  .info-box strong { color: #e9edef; }
+  .reset-btn {
+    background: #2a1a1a;
+    border: 1px solid #5a2020;
+    color: #ff6b6b;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+    font-family: inherit;
+    transition: background .15s;
+  }
+  .reset-btn:hover { background: #3d1a1a; }
+
+  @media (max-width: 720px) {
+    body { flex-direction: column; align-items: center; }
+    .panel { width: 380px; position: static; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="header">
+    <div class="avatar">🌊</div>
+    <div class="header-info">
+      <div class="header-name">Maré</div>
+      <div class="header-sub">Apoio à maternidade · SUS</div>
+    </div>
+  </div>
+  <div class="chat" id="chat"></div>
+  <div class="btns" id="btns"></div>
+</div>
+
+<div class="panel">
+  <div>
+    <h3>📍 Caminho atual</h3>
+    <div class="breadcrumb" id="breadcrumb">Boas-vindas</div>
+  </div>
+  <div>
+    <h3>🧩 Módulos ativos</h3>
+    <div class="modules">
+      <div class="module"><div class="mod-dot"></div> Boas-vindas & Menu</div>
+      <div class="module"><div class="mod-dot"></div> Direitos no SUS</div>
+      <div class="module"><div class="mod-dot"></div> Sinais de alerta</div>
+      <div class="module"><div class="mod-dot"></div> Saúde mental / DPP</div>
+      <div class="module"><div class="mod-dot"></div> Amamentação</div>
+      <div class="module"><div class="mod-dot"></div> Bebê (0–12 meses)</div>
+      <div class="module"><div class="mod-dot"></div> Benefícios sociais</div>
+      <div class="module"><div class="mod-dot"></div> Checklists pré-natal</div>
+    </div>
+  </div>
+  <div>
+    <h3>🏷️ Contexto da usuária</h3>
+    <div id="ctx-tags">
+      <span class="tag">aguardando entrada</span>
+    </div>
+  </div>
+  <div class="info-box">
+    <strong>Protótipo v4</strong><br>
+    ~55 estados · Máquina de estados contextual<br>
+    Contexto: <code>grávida</code> | <code>pós-parto</code><br><br>
+    Projeto de UX Research — <strong>Maré</strong><br>
+    Apoio gratuito à maternidade para mães de baixa renda via WhatsApp.
+  </div>
+  <button class="reset-btn" onclick="reset()">↺ Reiniciar conversa</button>
+</div>
+
+<script>
+let uCtx = null, cur = 'welcome', path = ['Boas-vindas'];
+
+const C = {
+  PARTO: {
+    title: '⚖️ Seus direitos no parto — SUS',
+    body: '✅ Acompanhante de sua escolha durante TODO o parto (Lei 11.108/2005)\n✅ Pedir analgesia a qualquer momento\n✅ Saber o nome de quem tá te atendendo\n✅ Não ser xingada, humilhada ou tocada sem consentimento\n✅ Plano de parto respeitado\n\n📞 Se negarem: liga na hora no 136 — Disque Saúde, 24h'
+  },
+  PRE: {
+    title: '⚖️ Seus direitos no pré-natal — SUS',
+    body: '✅ Consultas sem encaminhamento (qualquer posto)\n✅ Ir acompanhada\n✅ Caderneta da Gestante é sua — pode pedir\n✅ Faltar ao trabalho pras consultas sem desconto no salário\n✅ Ácido fólico e sulfato ferroso gratuitos no posto\n✅ Mínimo 6 consultas (idealmente 1/mês)'
+  },
+  POS: {
+    title: '⚖️ Seus direitos após o parto — SUS',
+    body: '✅ Consulta de revisão puerperal (até 42 dias)\n✅ Consulta do bebê no posto (teste do pezinho, olhinho, orelhinha)\n✅ Anticoncepção gratuita pelo SUS\n✅ Apoio psicológico gratuito pela Rede Cegonha\n✅ Lei 14.721/2023: apoio psicológico garantido no pós-parto'
+  },
+  ALERTA_GRAV: {
+    title: '🚨 Vai ao hospital AGORA se',
+    body: '🔴 Sangramento vaginal (qualquer quantidade)\n🔴 Dor de cabeça forte que não passa\n🔴 Visão turva ou pontos na vista\n🔴 Inchaço repentino no rosto, mãos ou pés\n🔴 Bolsa rompeu\n🔴 Bebê parou de mexer ou mexe muito menos\n🔴 Febre acima de 38°C\n🔴 Dor abdominal forte e constante\n\n📞 SAMU: 192  |  Disque Saúde: 136'
+  },
+  ALERTA_BEBE: {
+    title: '🚨 Leva ao pronto-socorro AGORA se o bebê',
+    body: '🔴 Tem febre ≥ 38°C e menos de 3 meses\n🔴 Está com dificuldade para respirar\n🔴 Não acorda / está muito sonolento\n🔴 Recusa mamar por mais de 8h\n🔴 Está muito pálido, roxo ou amarelo de repente\n🔴 Choro inconsolável por mais de 2h\n🔴 Engasgou e não consegue tossir\n\n📞 SAMU: 192'
+  },
+  VACINAS_BEBE: {
+    title: '💉 Vacinas do bebê — SUS (gratuitas)',
+    body: 'Na maternidade: BCG + Hepatite B\n2 meses: Pentavalente, VIP, Pneumo 10, Rotavírus\n3 meses: Meningocócica C\n4 meses: Pentavalente, VIP, Pneumo 10, Rotavírus\n6 meses: Pentavalente, VIP, Influenza\n9 meses: Febre Amarela\n12 meses: Tríplice viral, Pneumo 10, Meningo C\n15 meses: Tetraviral, DTP, VOP, Hepatite A\n\nLevar a caderneta em toda consulta 📋'
+  },
+  ENGASGO: {
+    title: '⚠️ Bebê engasgado — faça agora',
+    body: '1️⃣ Deita o bebê de bruços no seu antebraço, cabeça mais baixa que o corpo\n2️⃣ Dá 5 tapinhas firmes nas costas (entre os ombros) com a mão em concha\n3️⃣ Se não sair: vira de costas e faz 5 pressões no peito com 2 dedos\n4️⃣ Repete até desobstruir ou o SAMU chegar\n\n📞 Liga pro SAMU: 192 ao mesmo tempo'
+  },
+  BEN: {
+    title: '💰 Benefícios disponíveis pra você',
+    body: '💰 Bolsa Família + R$50 extra por gestante + R$150 por criança até 7 anos\n🏥 Rede Cegonha: pré-natal, parto e pós-parto humanizados\n🤱 Licença-maternidade: 120 dias CLT / 180 dias servidora pública\n👶 Salário-maternidade MEI/autônoma/desempregada: via INSS\n📋 Certidão de nascimento gratuita na maternidade\n\nCadastro Único: pré-requisito pra maioria dos benefícios'
+  }
+};
+
+const F = {
+  welcome: {
+    p: ['Boas-vindas'],
+    msgs: [
+      { t: 'Oi! Eu sou o Maré 🌊' },
+      { t: 'Tô aqui pra te ajudar na gravidez e depois que o neném chegar — com informação, seus direitos e alguém pra conversar.' },
+      { t: 'É tudo gratuito e sem julgamento.' },
+      { t: 'Você tá grávida agora ou já teve seu bebê?' }
+    ],
+    opts: [
+      { l: 'Estou grávida', a: () => { uCtx = 'gravida'; }, n: 'menu', u: 'Estou grávida' },
+      { l: 'Já tive meu bebê', a: () => { uCtx = 'pos'; }, n: 'menu', u: 'Já tive meu bebê' }
+    ]
+  },
+  menu: {
+    p: ['Menu'],
+    msgs: c => c === 'pos' ? [
+      { t: 'Que bom te ver aqui, mamãe 💙' },
+      { t: 'No que eu posso te ajudar hoje?' }
+    ] : [
+      { t: 'Que bom que você veio! 💙' },
+      { t: 'No que eu posso te ajudar hoje?' }
+    ],
+    opts: c => c === 'pos' ? [
+      { l: '🛡️  Meus direitos no SUS', n: 'd_pos' },
+      { l: '🤱  Amamentação', n: 'amamentacao' },
+      { l: '👶  Dúvida sobre o bebê', n: 'bebe_menu' },
+      { l: '💬  Tô me sentindo estranha...', n: 'sm_oq' },
+      { l: '❓  Tenho uma dúvida / benefícios', n: 'duvida' }
+    ] : [
+      { l: '🛡️  Meus direitos no SUS', n: 'd_quando' },
+      { l: '💬  Tô me sentindo estranha...', n: 'sm_oq' },
+      { l: '📋  Checklist de consultas', n: 'ck_sem' },
+      { l: '🚨  Tô preocupada com algo', n: 'alerta_grav' },
+      { l: '❓  Tenho uma dúvida / benefícios', n: 'duvida' }
+    ]
+  },
+
+  // DIREITOS
+  d_quando: {
+    p: ['Direitos'],
+    msgs: [{ t: 'Você quer saber sobre os seus direitos em qual momento?' }],
+    opts: [
+      { l: '🤰  No pré-natal', n: 'd_pre' },
+      { l: '🏥  Na hora do parto', n: 'd_parto' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  d_pre: {
+    p: ['Direitos', 'Pré-natal'],
+    msgs: [
+      { t: 'Tem coisas que você pode cobrar no pré-natal — e a maioria das mães não sabe:' },
+      { t: null, card: 'PRE' },
+      { t: 'Algum desses você não sabia? Ou já tentaram te negar algum?' }
+    ],
+    opts: [
+      { l: '😡  Já negaram um direito meu', n: 'd_negado' },
+      { l: '📋  Quero ver o checklist de consultas', n: 'ck_sem' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  d_parto: {
+    p: ['Direitos', 'Parto'],
+    msgs: [
+      { t: 'Quando chegar a hora do parto, guarda isso:' },
+      { t: null, card: 'PARTO' },
+      { t: 'Quer entender melhor sobre o plano de parto?' }
+    ],
+    opts: [
+      { l: '📝  O que é plano de parto?', n: 'plano_parto' },
+      { l: '😡  Já negaram um direito meu', n: 'd_negado' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  plano_parto: {
+    p: ['Direitos', 'Plano de parto'],
+    msgs: [
+      { t: 'O plano de parto é um documento que você escreve com suas preferências pro parto.' },
+      { t: 'Você pode definir: quem quer como acompanhante, se quer analgesia, posição de parir, clampeamento tardio do cordão, contato pele a pele imediato.' },
+      { t: 'Entrega na maternidade junto com seus documentos. O SUS é obrigado a respeitar.' }
+    ],
+    opts: [
+      { l: '😡  Já negaram um direito meu', n: 'd_negado' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  d_pos: {
+    p: ['Direitos', 'Pós-parto'],
+    msgs: [
+      { t: 'Depois que o neném nasce, seus direitos continuam:' },
+      { t: null, card: 'POS' },
+      { t: 'Algum desses você não sabia?' }
+    ],
+    opts: [
+      { l: '💰  Quero ver os benefícios', n: 'beneficios' },
+      { l: '😡  Já negaram um direito meu', n: 'd_negado' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  d_negado: {
+    p: ['Direitos', 'Direito negado'],
+    msgs: [
+      { t: 'Isso não deveria ter acontecido 💙' },
+      { t: 'Você pode fazer uma dessas coisas agora:' },
+      { t: '1️⃣ Pede pra falar com o responsável da unidade\n2️⃣ Liga no 136 — Disque Saúde, 24h\n3️⃣ Registra em ouvidoria.saude.gov.br' },
+      { t: 'Quer que eu te fale exatamente o que falar pra eles?' }
+    ],
+    opts: [
+      { l: '✍️  Sim, me dá o roteiro', n: 'd_roteiro' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  d_roteiro: {
+    p: ['Direitos', 'O que falar'],
+    msgs: [
+      { t: 'Copia esse texto e mostra pra eles:' },
+      { t: '"Eu tenho direito ao meu acompanhante durante o parto, garantido pela Lei Federal nº 11.108 de 2005. Solicito que esse direito seja respeitado agora. Caso contrário, vou registrar denúncia no Disque Saúde 136."' },
+      { t: 'Fala firme. Você tá certa 💙' }
+    ],
+    opts: [
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+
+  // ALERTAS
+  alerta_grav: {
+    p: ['Alerta'],
+    msgs: [
+      { t: 'Me conta o que tá te preocupando.' },
+      { t: null, card: 'ALERTA_GRAV', alerta: true },
+      { t: 'Se tiver qualquer sinal desses, não espera. Vai ao hospital agora.' }
+    ],
+    opts: [
+      { l: '🚨  Ligar pro SAMU — 192', n: 'menu', danger: true },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+
+  // AMAMENTAÇÃO
+  amamentacao: {
+    p: ['Amamentação'],
+    msgs: [
+      { t: 'Amamentação pode ser muito mais difícil do que as pessoas falam. Você não tá sozinha nessa.' },
+      { t: 'O que você tá sentindo?' }
+    ],
+    opts: [
+      { l: '😣  Tô com dor / fissura', n: 'am_pega' },
+      { l: '😰  Seio empedrado', n: 'am_empedrado' },
+      { l: '🤒  Acho que tô com mastite', n: 'am_mastite' },
+      { l: '😟  Acho que leite tá pouco', n: 'am_leite' },
+      { l: '❓  Por quanto tempo preciso amamentar?', n: 'am_quanto' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  am_pega: {
+    p: ['Amamentação', 'Fissura'],
+    msgs: [
+      { t: 'Dor nas primeiras semanas quase sempre é pega incorreta — e tem solução.' },
+      { t: 'A boca do neném precisa pegar a aréola toda, não só o bico. O lábio de baixo dele precisa estar virado pra fora.' },
+      { t: 'Aplica o próprio leite no bico depois de mamar — cicatriza. Lanolina pura também ajuda.' },
+      { t: 'Se a dor for intensa, procura uma consultora de amamentação no posto ou Banco de Leite mais próximo. É gratuito.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas de amamentação', n: 'amamentacao' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  am_empedrado: {
+    p: ['Amamentação', 'Empedrado'],
+    msgs: [
+      { t: 'Seio empedrado (ingurgitamento) é comum nos primeiros dias — o leite chegando de uma vez.' },
+      { t: 'O que ajuda: mama com frequência (a cada 2–3h), compressa morna antes, compressa fria depois.' },
+      { t: 'Massageia com gentileza do lado de fora em direção ao mamilo. Se o neném não conseguir pegar, tira um pouquinho de leite com a mão antes.' }
+    ],
+    opts: [
+      { l: '🤒  Pode ser mastite?', n: 'am_mastite' },
+      { l: '⬅️  Outras dúvidas', n: 'amamentacao' }
+    ]
+  },
+  am_mastite: {
+    p: ['Amamentação', 'Mastite'],
+    msgs: [
+      { t: 'Mastite é uma inflamação no seio — pode vir com vermelhão, calor, dor e febre.' },
+      { t: 'Continua amamentando pelo lado afetado — ajuda a desobstruir. Bebe bastante água.' },
+      { t: 'Se tiver febre acima de 38°C ou a dor for intensa, vai ao posto. Pode precisar de antibiótico — mas você não precisa parar de amamentar.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas', n: 'amamentacao' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  am_leite: {
+    p: ['Amamentação', 'Pouco leite'],
+    msgs: [
+      { t: 'A maioria das mães que acha que leite tá pouco, na verdade produz o suficiente.' },
+      { t: 'O leite funciona por demanda: quanto mais o neném mama, mais você produz. Oferecer com frequência é o segredo.' },
+      { t: 'Sinais de que tá chegando: neném faz xixi 6x por dia e ganha peso. Se não, vai ao posto.' }
+    ],
+    opts: [
+      { l: '🏦  Banco de Leite', n: 'am_banco' },
+      { l: '⬅️  Outras dúvidas', n: 'amamentacao' }
+    ]
+  },
+  am_quanto: {
+    p: ['Amamentação', 'Por quanto tempo'],
+    msgs: [
+      { t: 'A OMS recomenda aleitamento exclusivo até os 6 meses — só leite materno, sem água.' },
+      { t: 'Dos 6 meses aos 2 anos (ou mais), pode combinar com outros alimentos.' },
+      { t: 'Não existe prazo máximo. O desmame é uma decisão sua e do neném.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas', n: 'amamentacao' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  am_banco: {
+    p: ['Amamentação', 'Banco de leite'],
+    msgs: [
+      { t: 'O Banco de Leite Humano do SUS recebe doações e distribui para bebês prematuros.' },
+      { t: 'Pra encontrar o mais próximo: ligue no 136 (Disque Saúde) ou acesse redeblh.fiocruz.br.' },
+      { t: 'Se você quiser ou precisar de leite doado pro seu neném, também pode solicitar pelo SUS.' }
+    ],
+    opts: [
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+
+  // BEBÊ
+  bebe_menu: {
+    p: ['Bebê'],
+    msgs: [
+      { t: 'Conta pra mim — qual a dúvida sobre o neném?' }
+    ],
+    opts: [
+      { l: '😭  Cólica / hora da bruxa', n: 'bebe_colica' },
+      { l: '😴  Sono seguro', n: 'bebe_sono' },
+      { l: '💛  Icterícia (amarelão)', n: 'bebe_ict' },
+      { l: '🔵  Coto umbilical', n: 'bebe_umbigo' },
+      { l: '💉  Vacinas do bebê', n: 'bebe_vacinas' },
+      { l: '📈  Desenvolvimento mês a mês', n: 'bebe_dev' },
+      { l: '🥣  Introdução alimentar', n: 'bebe_alim' },
+      { l: '🚨  Tô preocupada com ele', n: 'bebe_alerta' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  bebe_colica: {
+    p: ['Bebê', 'Cólica'],
+    msgs: [
+      { t: 'Cólica é comum entre 2 semanas e 4 meses. A "hora da bruxa" costuma ser fim de tarde / início da noite.' },
+      { t: 'O que ajuda: massagem na barriga em círculos no sentido horário, posição de bruços no seu antebraço, movimento rítmico de passeio, chá de erva-doce (após 6 meses só).' },
+      { t: 'Se você amamenta, evite repolho, brócolis e feijão. Pode ajudar.' },
+      { t: 'Se o choro durar mais de 3h por dia, 3 dias por semana, vai ao pediatra.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas do bebê', n: 'bebe_menu' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  bebe_sono: {
+    p: ['Bebê', 'Sono seguro'],
+    msgs: [
+      { t: 'Pra dormir seguro, o neném precisa: de barriga pra cima, superfície firme, sem travesseiro e sem cobertor fofo.' },
+      { t: 'Cama compartilhada aumenta o risco de sufocamento. O ideal é berço ou mini berço ao lado da sua cama.' },
+      { t: 'Temperatura do quarto: entre 20°C e 22°C. Chupeta pode ser oferecida — reduz risco de morte súbita.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas do bebê', n: 'bebe_menu' }
+    ]
+  },
+  bebe_ict: {
+    p: ['Bebê', 'Icterícia'],
+    msgs: [
+      { t: 'Icterícia (pele e olhos amarelados) é comum nos primeiros dias — o corpo eliminando bilirrubina.' },
+      { t: 'O que ajuda: amamentar bastante (8–12x por dia) e expor à luz natural indireta pela janela.' },
+      { t: 'Vai ao médico se: amarelão aparecer nas primeiras 24h, for muito intenso (amarelo forte nas pernas), ou o neném estiver muito sonolento e recusando mamar.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas do bebê', n: 'bebe_menu' }
+    ]
+  },
+  bebe_umbigo: {
+    p: ['Bebê', 'Umbigo'],
+    msgs: [
+      { t: 'O coto umbilical cai entre 7 e 21 dias. Enquanto isso: não molhar, não cobrir com fralda, não usar álcool (o SUS mudou a recomendação — deixa secar ao ar).' },
+      { t: 'Sinal de infecção: cheiro forte, vermelhidão ao redor da pele, secreção amarela ou sangramento. Nesses casos, vai ao posto.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas do bebê', n: 'bebe_menu' }
+    ]
+  },
+  bebe_vacinas: {
+    p: ['Bebê', 'Vacinas'],
+    msgs: [
+      { t: 'O calendário completo do SUS é gratuito — não precisa pagar nada.' },
+      { t: null, card: 'VACINAS_BEBE' },
+      { t: 'Sempre leva a caderneta. Se perder, o posto tem o histórico.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas do bebê', n: 'bebe_menu' }
+    ]
+  },
+  bebe_dev: {
+    p: ['Bebê', 'Desenvolvimento'],
+    msgs: [
+      { t: 'Cada neném tem seu ritmo — mas tem marcos gerais pra acompanhar:' },
+      { t: '1–2 meses: sorri, segue com os olhos\n3–4 meses: sustenta cabeça, ri alto\n5–6 meses: senta com apoio, leva tudo à boca\n7–9 meses: senta sozinho, engatinha\n10–12 meses: fica em pé, primeiras palavras ("mamã", "papa")' },
+      { t: 'Se algum marco não aparecer, comenta na consulta do pediatra. Cada caso é único.' }
+    ],
+    opts: [
+      { l: '🥣  Introdução alimentar (6 meses)', n: 'bebe_alim' },
+      { l: '⬅️  Outras dúvidas do bebê', n: 'bebe_menu' }
+    ]
+  },
+  bebe_alim: {
+    p: ['Bebê', 'Introdução alimentar'],
+    msgs: [
+      { t: 'A introdução alimentar começa aos 6 meses — junto com o leite materno, não no lugar.' },
+      { t: 'Começa com papinhas de frutas e legumes. Sem açúcar, sal, mel (até 1 ano), industrializados ou frituras.' },
+      { t: 'Oferece o mesmo alimento até 10 vezes antes de desistir — neném precisa de repetição pra aceitar.' },
+      { t: 'O método BLW (comida em pedaços) também é válido — conversa com o pediatra sobre o que funciona melhor.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas do bebê', n: 'bebe_menu' }
+    ]
+  },
+  bebe_alerta: {
+    p: ['Bebê', 'Sinal de alerta'],
+    msgs: [
+      { t: 'Me conta o que você tá observando no neném.' },
+      { t: null, card: 'ALERTA_BEBE', alerta: true }
+    ],
+    opts: [
+      { l: '⚠️  Engasgou — o que fazer?', n: 'bebe_engasgo', danger: true },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  bebe_engasgo: {
+    p: ['Bebê', 'Engasgo'],
+    msgs: [
+      { t: null, card: 'ENGASGO', alerta: true },
+      { t: 'Liga pro SAMU (192) enquanto faz a manobra. Não espera.' }
+    ],
+    opts: [
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+
+  // BENEFÍCIOS
+  duvida: {
+    p: ['Dúvidas'],
+    msgs: [{ t: 'O que você queria saber?' }],
+    opts: [
+      { l: '💰  Benefícios sociais', n: 'beneficios' },
+      { l: '🛡️  Meus direitos', n: c => c === 'pos' ? 'd_pos' : 'd_quando' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  beneficios: {
+    p: ['Benefícios'],
+    msgs: [
+      { t: 'Tem vários benefícios que você pode ter direito e talvez não saiba:' },
+      { t: null, card: 'BEN' },
+      { t: 'Quer saber mais sobre algum deles?' }
+    ],
+    opts: [
+      { l: '💰  Bolsa Família', n: 'ben_bolsa' },
+      { l: '📋  Licença-maternidade', n: 'ben_licenca' },
+      { l: '🏥  Rede Cegonha', n: 'ben_cegonha' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  ben_bolsa: {
+    p: ['Benefícios', 'Bolsa Família'],
+    msgs: [
+      { t: 'O Bolsa Família paga R$50 extra por gestante + R$150 por criança de até 7 anos cadastrada.' },
+      { t: 'Pra ter direito: estar no Cadastro Único (CadÚnico) com renda familiar de até R$218 por pessoa.' },
+      { t: 'Cadastro é feito no CRAS do seu bairro. Leva RG, CPF, comprovante de renda e de endereço.' }
+    ],
+    opts: [
+      { l: '⬅️  Outros benefícios', n: 'beneficios' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  ben_licenca: {
+    p: ['Benefícios', 'Licença-maternidade'],
+    msgs: [
+      { t: 'Depende da sua situação:' },
+      { t: 'CLT (carteira assinada): 120 dias (empresa comum) ou 180 dias (empresa Empresa Cidadã).\nServidora pública: 180 dias.\nMEI / autônoma / desempregada: 120 dias pelo INSS (precisa ter contribuído).\nDesempregada sem contribuição: Bolsa Família é a principal proteção.' },
+      { t: 'Pra solicitar pelo INSS: Meu INSS (app ou site) ou ligue 135.' }
+    ],
+    opts: [
+      { l: '⬅️  Outros benefícios', n: 'beneficios' }
+    ]
+  },
+  ben_cegonha: {
+    p: ['Benefícios', 'Rede Cegonha'],
+    msgs: [
+      { t: 'A Rede Cegonha é um programa do SUS que garante pré-natal de qualidade, parto humanizado e acompanhamento do neném até 2 anos.' },
+      { t: 'Inclui: transporte pro parto quando necessário, apoio psicológico pós-parto, visita do ACS em casa.' },
+      { t: 'Pra acessar: basta ir ao posto de saúde e se cadastrar no pré-natal.' }
+    ],
+    opts: [
+      { l: '⬅️  Outros benefícios', n: 'beneficios' }
+    ]
+  },
+
+  // SAÚDE MENTAL
+  sm_oq: {
+    p: ['Saúde mental'],
+    msgs: [
+      { t: 'Me conta mais... Às vezes é difícil achar as palavras pra essas coisas, né?' },
+      { t: 'O que combina mais com o que você tá sentindo?' }
+    ],
+    opts: c => c === 'pos' ? [
+      { l: '😢  Tristeza, choro sem motivo', n: 'sm_triste' },
+      { l: '😰  Medo de não dar conta', n: 'sm_medo_pos' },
+      { l: '😓  Esgotamento total', n: 'sm_esgotada' },
+      { l: '🫂  Solidão', n: 'sm_sozinha' },
+      { l: '😴  Não consigo dormir (mesmo quando o bebê dorme)', n: 'sm_sono' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ] : [
+      { l: '😢  Tristeza, choro sem motivo', n: 'sm_triste' },
+      { l: '😰  Medo do parto', n: 'sm_medo_grav' },
+      { l: '😓  Esgotamento / ansiedade', n: 'sm_esgotada' },
+      { l: '🫂  Solidão', n: 'sm_sozinha' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  sm_triste: {
+    p: ['Saúde mental', 'Tristeza'],
+    msgs: [
+      { t: 'Obrigada por me contar. Não é fácil falar isso.' },
+      { t: 'Muita mãe sente isso e não conta pra ninguém — você não tá sozinha nessa.' },
+      { t: 'Faz quanto tempo que você tá assim?' }
+    ],
+    opts: [
+      { l: 'Alguns dias', n: 'sm_dias' },
+      { l: 'Algumas semanas', n: 'sm_semanas' },
+      { l: 'Mais de um mês', n: 'sm_mes' }
+    ]
+  },
+  sm_dias: {
+    p: ['Saúde mental', 'Alguns dias'],
+    msgs: [
+      { t: 'Nos primeiros dias depois do parto, muita mãe chora sem saber por quê. Isso tem nome: baby blues.' },
+      { t: 'É causado pela mudança hormonal brusca — e passa sozinho em até 2 semanas.' },
+      { t: 'O que ajuda: dormir quando o neném dorme, aceitar ajuda, não cobrar produtividade de você mesma.' }
+    ],
+    opts: [
+      { l: '❓  E se durar mais de 2 semanas?', n: 'sm_semanas' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  sm_semanas: {
+    p: ['Saúde mental', 'Algumas semanas'],
+    msgs: [
+      { t: 'Tristeza que fica por mais de duas semanas merece atenção.' },
+      { t: 'Pode ser o começo de uma depressão pós-parto — que afeta 1 em cada 4 mães no Brasil. Não é frescura, não é fraqueza. Tem tratamento.' },
+      { t: 'O passo mais importante é falar com alguém. Você consegue ir ao posto essa semana?' }
+    ],
+    opts: [
+      { l: '✅  Consigo ir ao posto', n: 'sm_como_pedir' },
+      { l: '😔  Não consigo sair agora', n: 'sm_barreira' }
+    ]
+  },
+  sm_mes: {
+    p: ['Saúde mental', 'Mais de 1 mês'],
+    msgs: [
+      { t: 'Obrigada por confiar isso pra mim 💙' },
+      { t: 'Tristeza que dura mais de duas semanas depois do parto tem nome: depressão pós-parto. Uma em cada quatro mães no Brasil passa por isso. Não é frescura, não é fraqueza — tem jeito.' },
+      { t: 'O mais importante agora é falar com alguém. Você consegue ir ao posto essa semana?' }
+    ],
+    opts: [
+      { l: '✅  Consigo ir ao posto', n: 'sm_como_pedir' },
+      { l: '😔  Não consigo sair agora', n: 'sm_barreira' }
+    ]
+  },
+  sm_medo_grav: {
+    p: ['Saúde mental', 'Medo do parto'],
+    msgs: [
+      { t: 'Medo do parto é uma das coisas mais normais e menos faladas da gravidez 💙' },
+      { t: 'Medo da dor, de não conseguir, de algo dar errado — muita mãe sente exatamente isso.' },
+      { t: 'Quando a gente entende o que vai acontecer, o medo diminui. O que te assusta mais?' }
+    ],
+    opts: [
+      { l: '🏥  Quero entender o que acontece no parto', n: 'd_parto' },
+      { l: '📝  O que é plano de parto?', n: 'plano_parto' },
+      { l: '⬅️  Voltar', n: 'sm_oq' }
+    ]
+  },
+  sm_medo_pos: {
+    p: ['Saúde mental', 'Medo de não dar conta'],
+    msgs: [
+      { t: 'Esse medo tem nome — e quase toda mãe sente, mas ninguém fala.' },
+      { t: 'Sentir que não vai dar conta não significa que é verdade. Significa que você se importa com o seu filho.' },
+      { t: 'Você tá conseguindo fazer o básico — dar de comer, pegar no colo?' }
+    ],
+    opts: [
+      { l: '✅  Consigo, mas tô esgotada', n: 'sm_esgotada' },
+      { l: '😔  Tô com dificuldade no básico', n: 'sm_mes' },
+      { l: '⬅️  Voltar', n: 'sm_oq' }
+    ]
+  },
+  sm_esgotada: {
+    p: ['Saúde mental', 'Esgotamento'],
+    msgs: [
+      { t: 'Cuidar de um recém-nascido é exaustivo de um jeito que ninguém avisa antes. Não existe mãe que não sinta isso.' },
+      { t: 'Uma coisa que ajuda: pedir ajuda específica. Não "me ajuda" — mas "você fica com o neném 1 hora hoje à tarde pra eu dormir?"' },
+      { t: 'Tem alguém que poderia fazer isso?' }
+    ],
+    opts: [
+      { l: '⬅️  Voltar ao menu', n: 'menu' },
+      { l: '💬  Quero conversar mais sobre isso', n: 'sm_triste' }
+    ]
+  },
+  sm_sozinha: {
+    p: ['Saúde mental', 'Solidão'],
+    msgs: [
+      { t: 'Solidão na maternidade é uma das coisas que mais machuca — e a que menos falam.' },
+      { t: 'Você não tá errada de sentir isso. Tem mãe que se sente assim mesmo cercada de gente.' },
+      { t: 'Tô aqui com você agora. O que seria mais útil pra você nesse momento?' }
+    ],
+    opts: [
+      { l: '💬  Quero conversar sobre o que sinto', n: 'sm_triste' },
+      { l: '📞  Quero falar com alguém agora', n: 'sm_como_pedir' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  sm_sono: {
+    p: ['Saúde mental', 'Insônia'],
+    msgs: [
+      { t: 'Não conseguir dormir mesmo quando o neném dorme é um sinal que o corpo tá em alerta constante.' },
+      { t: 'Isso pode ser ansiedade pós-parto — tão comum quanto a depressão, e menos falada.' },
+      { t: 'Mais de 2 semanas assim? Vale conversar com o médico no posto. Tem tratamento leve e eficaz.' }
+    ],
+    opts: [
+      { l: '✅  Vou ao posto', n: 'sm_como_pedir' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  sm_como_pedir: {
+    p: ['Saúde mental', 'Como pedir ajuda'],
+    msgs: [
+      { t: 'No posto, você pode falar assim:' },
+      { t: '"Tô me sentindo muito mal emocionalmente desde que tive o neném. Quero ser avaliada pra depressão pós-parto."' },
+      { t: 'Não precisa explicar mais nada. Isso já é suficiente 💙' }
+    ],
+    opts: [
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  sm_barreira: {
+    p: ['Saúde mental', 'Não consigo sair'],
+    msgs: [
+      { t: 'Tá bom, sem pressão. Sair de casa com neném pequeno e esgotada é pesado demais.' },
+      { t: 'Por enquanto, você pode ligar no CVV: 188. Gratuito, 24h, sem julgamento.' },
+      { t: 'Quando conseguir ir ao posto, usa aquela frase que te mandei. Não precisa explicar tudo de novo 💙' }
+    ],
+    opts: [
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  sm_fim: {
+    p: ['Saúde mental', 'Encerramento'],
+    msgs: [
+      { t: 'Fico contente que você me contou 💙' },
+      { t: 'Qualquer hora que precisar — é só mandar mensagem aqui.' }
+    ],
+    opts: [
+      { l: '❓  Tem mais alguma coisa', n: 'menu' },
+      { l: '✅  Tô bem, obrigada', n: 'fim' }
+    ]
+  },
+
+  // CHECKLISTS
+  ck_sem: {
+    p: ['Checklist'],
+    msgs: [{ t: 'Em qual parte da gravidez você tá?' }],
+    opts: [
+      { l: '1º trimestre (até 13 semanas)', n: 'ck_1t' },
+      { l: '2º trimestre (14–27 semanas)', n: 'ck_2t' },
+      { l: '3º trimestre (28+ semanas)', n: 'ck_3t' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  ck_1t: {
+    p: ['Checklist', '1º trimestre'],
+    msgs: [
+      { t: 'No começo da gravidez, não deixa de pedir na consulta:' },
+      { t: '✅ Hemograma completo\n✅ Tipagem sanguínea e fator Rh\n✅ Glicemia em jejum\n✅ Urina tipo 1 + urocultura\n✅ Toxoplasmose, rubéola, hepatite B e C\n✅ HIV e sífilis\n✅ Ultrassom morfológico do 1T (11–13 sem)\n✅ Vacinas: Influenza, Hepatite B, dTpa\n✅ Prescrição de ácido fólico' },
+      { t: 'Se algum não foi pedido ainda, você pode cobrar na próxima consulta 💪' }
+    ],
+    opts: [
+      { l: '⬅️  Outros trimestres', n: 'ck_sem' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  ck_2t: {
+    p: ['Checklist', '2º trimestre'],
+    msgs: [
+      { t: 'No meio da gravidez, presta atenção nisso:' },
+      { t: '✅ Ultrassom morfológico do 2T (20–24 sem)\n✅ Teste de tolerância à glicose (24–28 sem)\n✅ Hemograma + ferro + ferritina\n✅ Toxoplasmose (se não imune no 1T)\n✅ Ecocardiograma fetal (se indicado)\n✅ Vacina VSR Abrysvo (32–36 sem)\n✅ Começar a pensar no plano de parto' },
+      { t: 'Se o médico não falou em plano de parto, você pode perguntar — é seu direito 💙' }
+    ],
+    opts: [
+      { l: '📝  O que é plano de parto?', n: 'plano_parto' },
+      { l: '⬅️  Outros trimestres', n: 'ck_sem' }
+    ]
+  },
+  ck_3t: {
+    p: ['Checklist', '3º trimestre'],
+    msgs: [
+      { t: 'Reta final! Não pode faltar:' },
+      { t: '✅ Ultrassom de crescimento fetal\n✅ Cardiotocografia (batimentos do bebê)\n✅ Teste de estreptococo B (35–37 sem)\n✅ Hemograma final\n✅ Visita à maternidade de referência\n✅ Plano de parto entregue\n✅ Bolsa pronta com documentos' },
+      { t: 'Você já sabe qual maternidade é a sua?' }
+    ],
+    opts: [
+      { l: '🚨  Sinais de alerta pro parto', n: 'alerta_grav' },
+      { l: '⬅️  Outros trimestres', n: 'ck_sem' }
+    ]
+  },
+
+  fim: {
+    p: ['Encerramento'],
+    msgs: [
+      { t: 'Nada não! Cuida de você com carinho 💙' },
+      { t: 'Tô aqui quando precisar. Pode mandar oi quando quiser.' }
+    ],
+    opts: [
+      { l: '🔄  Voltar ao início', n: 'menu' }
+    ]
+  }
+};
+
+function gf(id) { return F[id] || { msgs: [{ t: '...' }], opts: [] }; }
+function gm(id) { const f = gf(id); return typeof f.msgs === 'function' ? f.msgs(uCtx) : f.msgs; }
+function go(id) {
+  const f = gf(id);
+  const raw = typeof f.opts === 'function' ? f.opts(uCtx) : f.opts;
+  return raw.map(o => ({
+    ...o,
+    n: typeof o.n === 'function' ? o.n(uCtx) : o.n
+  }));
+}
+
+function push(text, isBot, card, alerta) {
+  const chat = document.getElementById('chat');
+  if (!text && !card) return;
+  const div = document.createElement('div');
+  div.className = 'bubble ' + (isBot ? 'bot' : 'user') + (alerta ? ' alerta' : '');
+  if (card && C[card]) {
+    const c = C[card];
+    div.innerHTML = `<div class="card-title">${c.title}</div><pre>${c.body}</pre>`;
+  } else {
+    div.textContent = text;
+  }
+  chat.appendChild(div);
+  const sp = document.createElement('div');
+  sp.className = 'spacer';
+  chat.appendChild(sp);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function renderBtns(id) {
+  const btns = document.getElementById('btns');
+  btns.innerHTML = '';
+  const opts = go(id);
+  opts.forEach(opt => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (opt.danger ? ' danger' : '');
+    b.textContent = opt.l;
+    b.onclick = () => pick(opt);
+    btns.appendChild(b);
+  });
+}
+
+function upd() {
+  document.getElementById('breadcrumb').textContent = path.join(' › ');
+  const tags = document.getElementById('ctx-tags');
+  if (uCtx === 'gravida') tags.innerHTML = '<span class="tag">🤰 grávida</span>';
+  else if (uCtx === 'pos') tags.innerHTML = '<span class="tag">👶 pós-parto</span>';
+  else tags.innerHTML = '<span class="tag">aguardando entrada</span>';
+}
+
+function pick(opt) {
+  if (opt.a) opt.a();
+  if (opt.u) push(opt.u, false, null, false);
+  cur = opt.n;
+  const f = gf(cur);
+  if (f.p) path.push(f.p[f.p.length - 1]);
+  setTimeout(() => {
+    gm(cur).forEach((m, i) => {
+      setTimeout(() => {
+        push(m.t, true, m.card, m.alerta);
+      }, i * 300);
+    });
+    setTimeout(() => {
+      renderBtns(cur);
+      upd();
+    }, gm(cur).length * 300 + 100);
+  }, 200);
+}
+
+function reset() {
+  uCtx = null; cur = 'welcome'; path = ['Boas-vindas'];
+  document.getElementById('chat').innerHTML = '';
+  document.getElementById('btns').innerHTML = '';
+  upd();
+  init();
+}
+
+function init() {
+  const msgs = gm('welcome');
+  msgs.forEach((m, i) => {
+    setTimeout(() => push(m.t, true, null, false), i * 400);
+  });
+  setTimeout(() => renderBtns('welcome'), msgs.length * 400 + 200);
+  upd();
+}
+
+init();
+</script>
+</body>
+</html>
