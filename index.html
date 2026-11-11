@@ -139,6 +139,12 @@
   }
   .livre button:disabled { opacity: .5; cursor: default; }
   .digitando { color: #8696a0; font-style: italic; }
+  .bubble.typing { display: inline-flex; gap: 4px; align-items: center; padding: 12px 14px; }
+  .bubble.typing i { width: 7px; height: 7px; border-radius: 50%; background: #8696a0; animation: pisca 1.2s infinite ease-in-out; }
+  .bubble.typing i:nth-child(2) { animation-delay: .15s; } .bubble.typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes pisca { 0%, 60%, 100% { opacity: .3; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+  .bubble.typing.lento { font-size: 13px; font-style: italic; color: #8696a0; }
+  @media (prefers-reduced-motion: reduce) { .bubble, .bubble.typing i { animation: none; } }
 
   /* SIDE PANEL */
   .panel {
@@ -1239,7 +1245,64 @@ function push(text, isBot, card, alerta) {
   const sp = document.createElement('div');
   sp.className = 'spacer';
   chat.appendChild(sp);
+  rolarParaFim();
+}
+
+function rolarParaFim() {
+  const chat = document.getElementById('chat');
   chat.scrollTop = chat.scrollHeight;
+}
+
+// ───────── RITMO DE CONVERSA ─────────
+// Como no WhatsApp: a mensagem da mãe aparece na hora, o bot mostra "digitando…"
+// e as respostas chegam uma de cada vez, nunca misturadas com a próxima pergunta.
+let fala = Promise.resolve();
+let conversa = 0; // muda no "recomeçar": o que estava na fila da conversa antiga não aparece mais
+const espera = ms => new Promise(r => setTimeout(r, ms));
+const REDUZIR = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function mostrarDigitando(texto) {
+  let el = document.getElementById('digitando');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'digitando';
+    el.className = 'bubble bot typing';
+    el.setAttribute('aria-label', 'Maré está digitando');
+    document.getElementById('chat').appendChild(el);
+  }
+  el.classList.toggle('lento', !!texto);
+  el.innerHTML = texto ? texto : '<i></i><i></i><i></i>';
+  document.getElementById('chat').appendChild(el); // sempre a última da conversa
+  document.querySelector('.header-sub').textContent = 'digitando…';
+  rolarParaFim();
+}
+function esconderDigitando() {
+  document.getElementById('digitando')?.remove();
+  document.querySelector('.header-sub').textContent = SUB_ORIGINAL;
+}
+
+// Tempo de "digitação" proporcional ao tamanho da mensagem, com teto pra não cansar.
+function tempoDigitando(m) {
+  if (REDUZIR) return 150;
+  const n = m.card ? 160 : (m.t || '').length;
+  return Math.min(1300, 450 + n * 9);
+}
+
+function falarEmSequencia(msgs, depois) {
+  const minha = conversa;
+  fala = fala.then(async () => {
+    for (const m of msgs) {
+      if (minha !== conversa) return;
+      mostrarDigitando();
+      await espera(tempoDigitando(m));
+      esconderDigitando();
+      if (minha !== conversa) return;
+      push(m.t, true, m.card, m.alerta);
+      await espera(REDUZIR ? 0 : 250);
+    }
+    if (depois && minha === conversa) depois();
+  });
+  return fala;
 }
 
 function renderBtns(id) { renderOpts(go(id)); }
@@ -1264,9 +1327,13 @@ function upd() {
   else tags.innerHTML = '<span class="tag">aguardando entrada</span>';
 }
 
+// Texto do botão como a mãe "mandou": sem o espaço duplo depois do emoji.
+const textoDoBotao = opt => opt.u || opt.l.replace(/\s{2,}/g, ' ').trim();
+
 function pick(opt) {
+  document.getElementById('btns').innerHTML = ''; // some na hora, como resposta rápida
   if (opt.a) opt.a();
-  if (opt.u) push(opt.u, false, null, false);
+  if (!opt.tel) push(textoDoBotao(opt), false, null, false);
   if (opt.fn) { opt.fn(); return; }
   if (opt.tel) location.href = 'tel:' + opt.tel;
   mostrar(typeof opt.n === 'function' ? opt.n(uCtx) : opt.n);
@@ -1322,11 +1389,6 @@ function responderFixo(textos) {
   falarEmSequencia(textos.map(t => ({ t })), () => { renderBtns(d); upd(); });
 }
 
-function falarEmSequencia(msgs, depois) {
-  msgs.forEach((m, i) => setTimeout(() => push(m.t, true, m.card, m.alerta), 200 + i * 300));
-  setTimeout(depois, 200 + msgs.length * 300 + 100);
-}
-
 function naoEntendi(motivo) {
   const t = motivo === 'erro'
     ? 'Agora não consegui ler mensagem escrita 😕 Mas você pode escolher uma opção aqui embaixo:'
@@ -1358,10 +1420,8 @@ async function classificarTexto(texto) {
   document.getElementById('btns').innerHTML = '';
   const enviar = document.querySelector('#livre button');
   enviar.disabled = true;
-  const aviso = document.createElement('div');
-  aviso.className = 'bubble bot digitando';
-  aviso.textContent = 'digitando…';
-  document.getElementById('chat').appendChild(aviso);
+  await fala; // se o bot ainda estava respondendo, espera ele terminar
+  mostrarDigitando();
 
   // A mensagem atual vai em "texto"; o histórico leva só o que veio antes.
   const anteriores = historico.slice();
@@ -1371,7 +1431,7 @@ async function classificarTexto(texto) {
   try {
     const ctrl = new AbortController();
     // O plano gratuito às vezes demora; avisa e espera até 25s antes de voltar pros botões.
-    const lento = setTimeout(() => { aviso.textContent = 'só um instantinho, tô lendo sua mensagem…'; }, 5000);
+    const lento = setTimeout(() => mostrarDigitando('só um instantinho, tô lendo sua mensagem…'), 5000);
     const timer = setTimeout(() => ctrl.abort(), 25000);
     const resp = await fetch(API_CLASSIFICAR, {
       method: 'POST',
@@ -1382,7 +1442,7 @@ async function classificarTexto(texto) {
     clearTimeout(timer); clearTimeout(lento);
     if (resp.ok) r = await resp.json();
   } catch (e) { /* sem rede ou demorou: cai nos botões */ }
-  aviso.remove();
+  esconderDigitando();
   enviar.disabled = false;
 
   if (!r) return naoEntendi('erro');
@@ -1440,21 +1500,20 @@ document.getElementById('livre').addEventListener('submit', enviarTexto);
 
 function reset() {
   uCtx = null; cur = 'welcome'; path = ['Boas-vindas']; historico = [];
+  conversa++; fala = Promise.resolve(); esconderDigitando();
   document.getElementById('chat').innerHTML = '';
   document.getElementById('btns').innerHTML = '';
   upd();
   init();
 }
 
+const SUB_ORIGINAL = document.querySelector('.header-sub').textContent;
+
 function init() {
-  const msgs = gm('welcome');
-  msgs.forEach((m, i) => {
-    setTimeout(() => push(m.t, true, null, false), i * 400);
-  });
-  setTimeout(() => {
+  falarEmSequencia(gm('welcome'), () => {
     renderBtns('welcome');
     document.getElementById('livre').classList.add('on'); // dá pra começar escrevendo
-  }, msgs.length * 400 + 200);
+  });
   upd();
 }
 
