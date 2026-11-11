@@ -47,3 +47,11 @@ test('dúvidas comuns não disparam emergência', () => {
     'quando começo a dar papinha'
   ]) assert.equal(tipo(t, 'pos'), null, t);
 });
+
+test('sem saber o contexto (ela começou escrevendo)', () => {
+  assert.equal(tipo('o neném parou de mexer', null), 'gravidez');
+  assert.equal(tipo('a bolsa estourou', null), 'gravidez');
+  assert.equal(tipo('meu filho ta com febre', null), 'bebe');
+  assert.equal(tipo('to com sangramento forte', null), 'geral');
+  assert.equal(tipo('penso em me matar', null), 'mental');
+});

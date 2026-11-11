@@ -4,7 +4,11 @@
 // O texto da mãe não é gravado: não há log do conteúdo.
 
 import { GoogleGenAI } from '@google/genai';
-import { TOPICOS, IDS } from './_topicos.js';
+import { TOPICOS, IDS, ACOLHIMENTOS } from './_topicos.js';
+
+const TIPOS = ['duvida', 'cumprimento', 'fora_do_escopo'];
+const CONTEXTOS = ['gravida', 'pos', 'desconhecido'];
+const ACOLHE_IDS = Object.keys(ACOLHIMENTOS);
 
 const MODELO = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 const MAX_CHARS = 400;
@@ -14,6 +18,9 @@ const ORIGENS = ['https://uxpalu.github.io'];
 const SCHEMA = {
   type: 'object',
   properties: {
+    tipo: { type: 'string', enum: TIPOS },
+    contexto_inferido: { type: 'string', enum: CONTEXTOS },
+    acolhimento: { type: 'string', enum: ACOLHE_IDS },
     topicos: {
       type: 'array',
       maxItems: 3,
@@ -27,7 +34,7 @@ const SCHEMA = {
       }
     }
   },
-  required: ['topicos']
+  required: ['tipo', 'contexto_inferido', 'acolhimento', 'topicos']
 };
 
 const SYSTEM = `Você classifica mensagens enviadas ao Maré, um bot de WhatsApp de apoio à maternidade para mães de baixa renda que usam o SUS.
@@ -39,14 +46,30 @@ As mães escrevem como falam: gírias, erros de digitação, sem pontuação, "n
 Tópicos (id: quando usar):
 ${Object.entries(TOPICOS).map(([id, d]) => `- ${id}: ${d}`).join('\n')}
 
+Além dos tópicos, você devolve três campos:
+
+tipo:
+- duvida: ela pergunta ou conta algo sobre gravidez, parto, pós-parto, o neném, direitos, benefícios ou como se sente.
+- cumprimento: só um "oi", "bom dia", "obrigada", sem dúvida.
+- fora_do_escopo: assunto que não tem a ver com maternidade (ex.: celular, futebol, receita de bolo).
+
+contexto_inferido (se ela está grávida ou já teve o bebê, deduzido da conversa):
+- gravida: fala de semanas de gestação, barriga, parto que ainda vai acontecer, pré-natal.
+- pos: fala do neném já nascido (idade em dias ou meses, mamar, vacina do bebê), resguardo, pós-parto.
+- desconhecido: não dá para saber. Não chute.
+
+acolhimento (uma frase pronta que o bot mostra antes da resposta; escolha só quando a mensagem tem emoção clara):
+${Object.entries(ACOLHIMENTOS).map(([id, d]) => `- ${id}: ${d}`).join('\n')}
+
 Regras:
+0. Se o tipo é duvida mas nenhum tópico combina com certeza, devolva os 2 ou 3 tópicos mais próximos com confiança baixa. O bot vai perguntar "Seria algum desses?". Use "nenhum" só para cumprimento e fora_do_escopo.
 1. Se a mensagem tem mais de uma dúvida (ex.: "meu peito tá rachado e ele chora toda tarde"), devolva um tópico para cada dúvida, na ordem em que aparecem, no máximo 3.
 2. Use a conversa anterior só para entender mensagens que dependem dela ("e se durar mais?", "e pro neném?", "e no meu caso?"). Se a última mensagem já é clara sozinha, ignore a conversa anterior. Nunca repita um tópico só porque ele apareceu antes.
 3. Confiança:
    - alta: a mensagem pede claramente o que o tópico cobre.
    - media: é o tópico mais provável, mas a mensagem é vaga ou cabe em mais de um.
    - baixa: você está chutando.
-4. Se nada combina, devolva [{"topico": "nenhum", "confianca": "alta"}].
+4. Para cumprimento e fora_do_escopo, devolva topicos = [{"topico": "nenhum", "confianca": "alta"}].
 5. O contexto diz se ela está grávida ou já teve o bebê. Use para desempatar (ex.: "tô com medo" grávida tende a sm_medo_grav; depois do parto, sm_medo_pos).`;
 
 let ai;
@@ -98,7 +121,8 @@ export async function classificar(texto, contexto, historico = []) {
     config: {
       systemInstruction: SYSTEM,
       responseMimeType: 'application/json',
-      responseJsonSchema: SCHEMA
+      responseJsonSchema: SCHEMA,
+      thinkingConfig: { thinkingLevel: 'MINIMAL' } // classificar não precisa de raciocínio longo; responde mais rápido
     }
   };
 
@@ -112,16 +136,22 @@ export async function classificar(texto, contexto, historico = []) {
     resposta = await ai.models.generateContent(pedido);
   }
 
-  return { topicos: validar(resposta.text) };
+  return validar(resposta.text);
 }
 
-// Nunca confia cegamente na saída: só passa id que existe, sem repetir, no máximo 3.
+// Nunca confia cegamente na saída: só passa valor que existe nas listas, sem repetir, no máximo 3 tópicos.
 function validar(texto) {
   let dados;
-  try { dados = JSON.parse(texto ?? ''); } catch { return []; }
+  try { dados = JSON.parse(texto ?? ''); } catch { dados = {}; }
   const vistos = new Set();
-  return (Array.isArray(dados?.topicos) ? dados.topicos : [])
+  const topicos = (Array.isArray(dados?.topicos) ? dados.topicos : [])
     .filter(t => IDS.includes(t?.topico) && ['alta', 'media', 'baixa'].includes(t?.confianca))
     .filter(t => !vistos.has(t.topico) && vistos.add(t.topico))
     .slice(0, 3);
+  return {
+    tipo: TIPOS.includes(dados?.tipo) ? dados.tipo : 'duvida',
+    contexto_inferido: CONTEXTOS.includes(dados?.contexto_inferido) ? dados.contexto_inferido : 'desconhecido',
+    acolhimento: ACOLHE_IDS.includes(dados?.acolhimento) ? dados.acolhimento : 'nenhum',
+    topicos
+  };
 }
