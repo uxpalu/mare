@@ -119,6 +119,26 @@
   .btn:hover { background: #2a3942; }
   .btn.danger { color: #ff6b6b; border-color: #5a2020; }
 
+  /* TEXTO LIVRE (opcional — os botões continuam sendo o caminho principal) */
+  .livre { display: none; gap: 8px; padding: 0 12px 14px; }
+  .livre.on { display: flex; }
+  .livre input {
+    flex: 1; min-width: 0;
+    background: #2a3942; color: #e9edef;
+    border: 0; border-radius: 20px;
+    padding: 10px 14px; font: inherit; font-size: 14px;
+  }
+  .livre input::placeholder { color: #8696a0; }
+  .livre input:focus-visible { outline: 2px solid #00a884; }
+  .livre button {
+    width: 40px; height: 40px; flex-shrink: 0;
+    border-radius: 50%; border: 0;
+    background: #00a884; color: #0b141a;
+    font-size: 18px; cursor: pointer;
+  }
+  .livre button:disabled { opacity: .5; cursor: default; }
+  .digitando { color: #8696a0; font-style: italic; }
+
   /* SIDE PANEL */
   .panel {
     width: 300px;
@@ -198,6 +218,10 @@
   </div>
   <div class="chat" id="chat"></div>
   <div class="btns" id="btns"></div>
+  <form class="livre" id="livre" autocomplete="off">
+    <input id="livre-txt" maxlength="400" placeholder="Ou escreve sua dúvida aqui" aria-label="Escreva sua dúvida">
+    <button type="submit" aria-label="Enviar">➤</button>
+  </form>
 </div>
 
 <div class="panel">
@@ -225,8 +249,9 @@
     </div>
   </div>
   <div class="info-box">
-    <strong>Protótipo v4</strong><br>
+    <strong>Protótipo v5</strong><br>
     ~55 estados · Máquina de estados contextual<br>
+    Texto livre: a IA só escolhe o tópico; a resposta é sempre o texto já escrito. Emergência é regra fixa, sem IA.<br>
     Contexto: <code>grávida</code> | <code>pós-parto</code><br><br>
     Projeto de UX Research — <strong>Maré</strong><br>
     Apoio gratuito à maternidade para mães de baixa renda via WhatsApp.
@@ -234,8 +259,14 @@
   <button class="reset-btn" onclick="reset()">↺ Reiniciar conversa</button>
 </div>
 
+<script src="emergencia.js"></script>
 <script>
 let uCtx = null, cur = 'welcome', path = ['Boas-vindas'];
+
+// Onde fica a função que classifica o texto livre (a chave da API fica lá, nunca aqui).
+const API_CLASSIFICAR = location.hostname.endsWith('github.io')
+  ? 'https://mare-bot.vercel.app/api/classificar'
+  : '/api/classificar';
 
 const C = {
   PARTO: {
@@ -265,6 +296,20 @@ const C = {
   ENGASGO: {
     title: '⚠️ Bebê engasgado — faça agora',
     body: '1️⃣ Deita o bebê de bruços no seu antebraço, cabeça mais baixa que o corpo\n2️⃣ Dá 5 tapinhas firmes nas costas (entre os ombros) com a mão em concha\n3️⃣ Se não sair: vira de costas e faz 5 pressões no peito com 2 dedos\n4️⃣ Repete até desobstruir ou o SAMU chegar\n\n📞 Liga pro SAMU: 192 ao mesmo tempo'
+  },
+  // Cards de emergência acionados pela regra fixa do texto livre (emergencia.js).
+  // Conteúdo tirado da base de conhecimento (módulos 5.2, 5.4, 6.3 e 9.1). Pendente: revisão clínica.
+  EMERG_MENTAL: {
+    title: '🚨 Você não precisa passar por isso sozinha',
+    body: 'Se você tá pensando em se machucar, em machucar o neném, ou tá vendo ou ouvindo coisas que os outros não veem:\n\n📞 SAMU: 192 — é emergência, eles atendem crise emocional também\n📞 CVV: 188 — conversa agora, 24h, de graça, sem julgamento\n\nSe puder, chama alguém de confiança pra ficar com você e com o neném agora.'
+  },
+  EMERG_VIOLENCIA: {
+    title: '💜 Isso não é culpa sua. Tem quem te ajude',
+    body: '📞 180 — Central da Mulher: 24h, de graça, sigiloso\n📞 190 — Polícia, se você estiver em perigo agora\n🏢 Delegacia da Mulher (DEAM)\n🏥 No posto, a equipe também pode te encaminhar\n🤝 No CRAS do seu bairro tem apoio social\n\nA Lei Maria da Penha protege você, inclusive na gravidez.'
+  },
+  EMERG_POS: {
+    title: '🚨 Procura atendimento AGORA se',
+    body: '🔴 Sangramento que aumenta depois de ter diminuído, ou sai em chumaço\n🔴 Febre junto com sangramento\n🔴 Sangramento com cheiro ruim\n🔴 Cicatriz da cesárea vermelha, com pus ou abrindo\n🔴 Falta de ar, desmaio ou dor forte\n\n📞 SAMU: 192  |  Disque Saúde: 136'
   },
   BEN: {
     title: '💰 Benefícios disponíveis pra você',
@@ -935,10 +980,11 @@ function push(text, isBot, card, alerta) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-function renderBtns(id) {
+function renderBtns(id) { renderOpts(go(id)); }
+
+function renderOpts(opts) {
   const btns = document.getElementById('btns');
   btns.innerHTML = '';
-  const opts = go(id);
   opts.forEach(opt => {
     const b = document.createElement('button');
     b.className = 'btn' + (opt.danger ? ' danger' : '');
@@ -959,26 +1005,146 @@ function upd() {
 function pick(opt) {
   if (opt.a) opt.a();
   if (opt.u) push(opt.u, false, null, false);
-  cur = opt.n;
-  const f = gf(cur);
-  if (f.p) path.push(f.p[f.p.length - 1]);
-  setTimeout(() => {
-    gm(cur).forEach((m, i) => {
-      setTimeout(() => {
-        push(m.t, true, m.card, m.alerta);
-      }, i * 300);
-    });
-    setTimeout(() => {
-      renderBtns(cur);
-      upd();
-    }, gm(cur).length * 300 + 100);
-  }, 200);
+  if (opt.fn) { opt.fn(); return; }
+  if (opt.tel) location.href = 'tel:' + opt.tel;
+  mostrar(opt.n);
 }
 
+// Memória curta da conversa: o que a mãe escreveu e o NOME dos tópicos que o bot mostrou
+// (nunca o texto de saúde). Vai junto pra IA entender "e se durar mais?" ou "e pro neném?".
+let historico = [];
+function lembrar(de, t) { historico.push({ de, t }); if (historico.length > 12) historico.shift(); }
+function nomeTopico(id) { return (F[id]?.p || [id]).join(' › '); }
+
+function mostrar(id) { mostrarVarios([id]); }
+
+// Mostra um ou mais estados em sequência (quando a mãe faz várias perguntas numa mensagem).
+// "extras" são botões a mais antes das opções do último estado.
+function mostrarVarios(ids, extras = []) {
+  const msgs = [];
+  ids.forEach((id, k) => {
+    const f = gf(id);
+    if (f.p) path.push(f.p[f.p.length - 1]);
+    if (id !== 'menu' && id !== 'welcome') lembrar('bot', nomeTopico(id));
+    if (k > 0) msgs.push({ t: `E sobre "${nomeTopico(id)}":` });
+    msgs.push(...gm(id));
+  });
+  cur = ids[ids.length - 1];
+  document.getElementById('livre').classList.toggle('on', !!uCtx);
+  falarEmSequencia(msgs, () => { renderOpts([...extras, ...go(cur)]); upd(); });
+}
+
+// ───────── TEXTO LIVRE ─────────
+// Ordem: 1) regra fixa de emergência (sem IA, sem internet)  2) IA escolhe o tópico
+// 3) o bot mostra a resposta JÁ ESCRITA daquele tópico. Na dúvida, volta pros botões.
+
+const SAMU = { l: '🚨  Ligar pro SAMU — 192', tel: '192', danger: true, n: 'menu' };
+const MENU = { l: '⬅️  Ver as opções', n: 'menu' };
+
+function falarEmSequencia(msgs, depois) {
+  msgs.forEach((m, i) => setTimeout(() => push(m.t, true, m.card, m.alerta), 200 + i * 300));
+  setTimeout(depois, 200 + msgs.length * 300 + 100);
+}
+
+function naoEntendi(motivo) {
+  const t = motivo === 'erro'
+    ? 'Agora não consegui ler mensagem escrita 😕 Mas você pode escolher uma opção aqui embaixo:'
+    : 'Não entendi direito 💙 Escolhe uma opção aqui embaixo que eu te ajudo:';
+  cur = 'menu';
+  falarEmSequencia([{ t }], () => { renderBtns('menu'); upd(); });
+}
+
+function mostrarEmergencia(em, texto) {
+  path.push('Emergência');
+  if (em.tipo === 'engasgo') return mostrar('bebe_engasgo');
+
+  const naoUrgente = { l: '💬  Não é urgente, só tenho uma dúvida', fn: () => classificarTexto(texto) };
+  let msgs, opts;
+  if (em.tipo === 'mental') {
+    msgs = [{ t: 'Obrigada por me contar. Isso é sério e você merece ajuda agora 💙' }, { card: 'EMERG_MENTAL', alerta: true }];
+    opts = [SAMU, { l: '📞  Ligar pro CVV — 188', tel: '188', n: 'menu' }, MENU];
+  } else if (em.tipo === 'violencia') {
+    msgs = [{ t: 'Obrigada por confiar isso a mim. Você não merece passar por isso 💜' }, { card: 'EMERG_VIOLENCIA', alerta: true }];
+    opts = [{ l: '📞  Ligar pra Central da Mulher — 180', tel: '180', danger: true, n: 'menu' }, { l: '🚨  Tô em perigo agora — 190', tel: '190', danger: true, n: 'menu' }, MENU];
+  } else {
+    const card = em.tipo === 'bebe' ? 'ALERTA_BEBE' : em.tipo === 'gravidez' ? 'ALERTA_GRAV' : 'EMERG_POS';
+    msgs = [{ t: 'Pelo que você escreveu, pode ser urgente. Olha isso primeiro:' }, { card, alerta: true }, { t: 'Se for algum desses, não espera. Procura atendimento agora.' }];
+    opts = [SAMU, naoUrgente, MENU];
+  }
+  falarEmSequencia(msgs, () => { renderOpts(opts); upd(); });
+}
+
+async function classificarTexto(texto) {
+  document.getElementById('btns').innerHTML = '';
+  const enviar = document.querySelector('#livre button');
+  enviar.disabled = true;
+  const aviso = document.createElement('div');
+  aviso.className = 'bubble bot digitando';
+  aviso.textContent = 'digitando…';
+  document.getElementById('chat').appendChild(aviso);
+
+  // A mensagem atual vai em "texto"; o histórico leva só o que veio antes.
+  const anteriores = historico.slice();
+  if (anteriores.at(-1)?.de === 'mae' && anteriores.at(-1).t === texto) anteriores.pop();
+
+  let r = null;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const resp = await fetch(API_CLASSIFICAR, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto, contexto: uCtx, historico: anteriores }),
+      signal: ctrl.signal
+    });
+    clearTimeout(timer);
+    if (resp.ok) r = await resp.json();
+  } catch (e) { /* sem rede ou demorou: cai nos botões */ }
+  aviso.remove();
+  enviar.disabled = false;
+
+  if (!r) return naoEntendi('erro');
+  const uteis = (r.topicos || []).filter(t => F[t.topico] && t.topico !== 'nenhum' && t.confianca !== 'baixa');
+  if (!uteis.length) return naoEntendi();
+
+  const altas = uteis.filter(t => t.confianca === 'alta').map(t => t.topico);
+  const medias = uteis.filter(t => t.confianca === 'media').map(t => t.topico);
+
+  if (altas.length) {
+    // Confiança alta: responde direto. As de confiança média viram botões de "Também".
+    push(altas.length > 1 ? 'Você perguntou mais de uma coisa. Vou por partes 💙' : 'Entendi. Olha o que eu sei sobre isso:', true);
+    return mostrarVarios(altas, medias.map(id => ({ l: `💬  Também: ${nomeTopico(id)}`, n: id })));
+  }
+  // Só confiança média: confirma antes de responder.
+  const nao = { l: '❌  Não, quero ver as opções', n: 'menu' };
+  if (medias.length === 1) {
+    return falarEmSequencia([{ t: `Você quer saber sobre "${nomeTopico(medias[0])}"?` }],
+      () => renderOpts([{ l: '✅  Sim, é isso', n: medias[0] }, nao]));
+  }
+  falarEmSequencia([{ t: 'Acho que é sobre um desses. Qual?' }],
+    () => renderOpts([...medias.map(id => ({ l: `💬  ${nomeTopico(id)}`, n: id })), nao]));
+}
+
+function enviarTexto(ev) {
+  ev.preventDefault();
+  const input = document.getElementById('livre-txt');
+  const texto = input.value.trim();
+  if (!texto || !uCtx) return;
+  input.value = '';
+  push(texto, false);
+  lembrar('mae', texto);
+  document.getElementById('btns').innerHTML = '';
+  const em =MareEmergencia.detectarEmergencia(texto, uCtx);
+  if (em) return mostrarEmergencia(em, texto);
+  classificarTexto(texto);
+}
+document.getElementById('livre').addEventListener('submit', enviarTexto);
+
 function reset() {
-  uCtx = null; cur = 'welcome'; path = ['Boas-vindas'];
+  uCtx = null; cur = 'welcome'; path = ['Boas-vindas']; historico = [];
   document.getElementById('chat').innerHTML = '';
   document.getElementById('btns').innerHTML = '';
+  document.getElementById('livre').classList.remove('on');
   upd();
   init();
 }

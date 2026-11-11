@@ -1,0 +1,13 @@
+{
+  "name": "mare-bot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env.local scripts/dev-server.mjs",
+    "test": "node --test eval/emergencia.test.mjs",
+    "eval": "node --env-file-if-exists=.env.local eval/rodar.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^3.1.0"
+  }
+}
