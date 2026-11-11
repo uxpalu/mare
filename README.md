@@ -123,6 +123,16 @@ A netnografia revelou que 92% das mães de baixa renda usam WhatsApp diariamente
 **Por que botões e não texto livre?**
 Teste de conceito mostrou que texto livre aumenta a carga cognitiva em momentos de vulnerabilidade. Botões guiam sem sobrecarregar.
 
+**v5: texto livre como opção, com IA que só classifica**
+Os botões continuam sendo o caminho principal. Quem prefere escrever pode digitar a dúvida: uma regra fixa checa primeiro se é emergência (sem IA), depois a IA (Gemini) escolhe um ou mais dos 44 estados existentes, lembrando o assunto das últimas mensagens, e o bot mostra a resposta já escrita a partir das fontes oficiais. A IA nunca escreve texto de saúde. Detalhes em [DECISAO-IA.md](DECISAO-IA.md).
+
+```
+api/classificar.js   ← função serverless (Vercel), guarda a chave da API
+api/_topicos.js      ← os 44 tópicos que a IA pode escolher
+emergencia.js        ← regra fixa de emergência (roda no navegador, sem IA)
+eval/                ← testes da regra (npm test) e avaliação da IA (npm run eval)
+```
+
 **Por que "neném" e não "bebê"?**
 Copy alinhada ao vocabulário real do público — descoberto via netnografia. "Posto" em vez de "UBS", "tá" em vez de "está". Cada palavra foi validada.
 
