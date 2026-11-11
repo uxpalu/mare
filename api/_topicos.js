@@ -50,10 +50,35 @@ export const TOPICOS = {
   sm_mes: 'Tristeza que já dura mais de um mês, ou dificuldade de fazer o básico, depressão pós-parto',
   sm_medo_grav: 'Medo do parto, medo de sentir dor ou de dar errado no parto',
   sm_medo_pos: 'Medo de não dar conta do bebê, de não ser boa mãe',
-  sm_esgotada: 'Cansaço extremo, esgotamento, ansiedade, sobrecarga',
+  sm_esgotada: 'Cansaço extremo, esgotamento, sobrecarga (depois do parto)',
+  sm_ansiedade: 'Ansiedade, nervosismo, preocupação demais durante a gravidez',
+  sm_onde_ajuda: 'Onde achar psicólogo, CAPS ou apoio emocional de graça pelo SUS',
   sm_sozinha: 'Solidão, se sente sozinha, ninguém ajuda',
   sm_sono: 'Insônia da mãe: não consegue dormir mesmo quando o bebê dorme',
   sm_como_pedir: 'Como pedir ajuda psicológica no posto, quer falar com alguém',
+
+  // Gravidez e parto (v5.1)
+  grav_menu: 'Dúvida sobre a gravidez ou o parto em geral, sem tema específico',
+  pre_inicio: 'Quando começar o pré-natal, quantas consultas são, onde fazer, o que levar na primeira',
+  vac_gest: 'Vacinas da gestante: dTpa, gripe, COVID, VSR, hepatite B na gravidez',
+  alim_grav: 'O que comer ou evitar na gravidez: comida, peixe, queijo, ovo, bebida alcoólica',
+  pre_eclampsia: 'Pré-eclâmpsia, pressão alta na gravidez (dúvida sobre o que é)',
+  parto_sinais: 'Como saber se é trabalho de parto de verdade, contrações, falso parto, quando ir pra maternidade',
+  parto_mala: 'O que levar pra maternidade, mala, bolsa, documentos',
+  parto_etapas: 'Como é o trabalho de parto, fases, dilatação, placenta',
+  d_violencia_obst: 'Violência obstétrica: o que é, exemplos (corte, cesárea forçada, empurrar a barriga), como denunciar',
+
+  // Pós-parto da mãe (v5.1)
+  pos_menu: 'Dúvida sobre o corpo da mãe depois do parto, resguardo, em geral',
+  pos_sangramento: 'Sangramento depois do parto, lóquios, quanto tempo dura',
+  pos_normal: 'Recuperação do parto normal, ponto, episiotomia, quando voltar a ter relação',
+  pos_cesarea: 'Recuperação da cesárea, cicatriz, resguardo, pegar peso',
+  pos_anticoncepcao: 'Evitar gravidez depois do parto, anticoncepcional, DIU, quando engravidar de novo, amamentar evita gravidez?',
+  pos_trabalho: 'Voltar ao trabalho, estabilidade no emprego, ser demitida depois do parto',
+
+  // Bebê e amamentação (v5.1)
+  bebe_testes: 'Teste do pezinho, olhinho, orelhinha, coraçãozinho, linguinha',
+  am_quando_nao: 'Quando não pode amamentar: HIV, remédios, galactosemia',
 
   // Checklists
   ck_sem: 'Exames e consultas do pré-natal, sem dizer o trimestre',
@@ -65,3 +90,14 @@ export const TOPICOS = {
 };
 
 export const IDS = Object.keys(TOPICOS);
+
+// Frases de acolhimento: a IA só escolhe o id; o texto está escrito no index.html (objeto ACOLHE).
+export const ACOLHIMENTOS = {
+  nenhum: 'Pergunta neutra ou só informativa, sem emoção forte. É o padrão.',
+  dificil: 'Ela conta uma situação difícil ou dolorosa',
+  cansaco: 'Ela diz que está exausta, sobrecarregada, sem aguentar',
+  medo: 'Ela diz que está com medo ou insegura',
+  preocupacao: 'Ela está preocupada com o neném ou com a própria saúde',
+  injustica: 'Ela foi maltratada, desrespeitada ou teve um direito negado',
+  sozinha: 'Ela diz que está sozinha, sem apoio, sem ninguém'
+};

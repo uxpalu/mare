@@ -64,6 +64,7 @@
     border-radius: 8px;
     font-size: 14px;
     line-height: 1.45;
+    white-space: pre-line;
     position: relative;
     animation: fadeIn .25s ease;
   }
@@ -307,6 +308,11 @@ const C = {
     title: '💜 Isso não é culpa sua. Tem quem te ajude',
     body: '📞 180 — Central da Mulher: 24h, de graça, sigiloso\n📞 190 — Polícia, se você estiver em perigo agora\n🏢 Delegacia da Mulher (DEAM)\n🏥 No posto, a equipe também pode te encaminhar\n🤝 No CRAS do seu bairro tem apoio social\n\nA Lei Maria da Penha protege você, inclusive na gravidez.'
   },
+  // Quando ainda não sabemos se ela está grávida ou no pós-parto: só os sinais comuns aos dois cards.
+  EMERG_GERAL: {
+    title: '🚨 Procura atendimento AGORA se tiver',
+    body: '🔴 Sangramento forte\n🔴 Febre acima de 38°C\n🔴 Falta de ar ou desmaio\n🔴 Dor muito forte\n\n📞 SAMU: 192  |  Disque Saúde: 136'
+  },
   EMERG_POS: {
     title: '🚨 Procura atendimento AGORA se',
     body: '🔴 Sangramento que aumenta depois de ter diminuído, ou sai em chumaço\n🔴 Febre junto com sangramento\n🔴 Sangramento com cheiro ruim\n🔴 Cicatriz da cesárea vermelha, com pus ou abrindo\n🔴 Falta de ar, desmaio ou dor forte\n\n📞 SAMU: 192  |  Disque Saúde: 136'
@@ -324,8 +330,18 @@ const F = {
       { t: 'Oi! Eu sou o Maré 🌊' },
       { t: 'Tô aqui pra te ajudar na gravidez e depois que o neném chegar — com informação, seus direitos e alguém pra conversar.' },
       { t: 'É tudo gratuito e sem julgamento.' },
-      { t: 'Você tá grávida agora ou já teve seu bebê?' }
+      { t: 'Você tá grávida agora ou já teve seu bebê?' },
+      { t: 'Pode tocar aqui embaixo ou, se preferir, já me escrever sua dúvida 💬' }
     ],
+    opts: [
+      { l: 'Estou grávida', a: () => { uCtx = 'gravida'; }, n: 'menu', u: 'Estou grávida' },
+      { l: 'Já tive meu bebê', a: () => { uCtx = 'pos'; }, n: 'menu', u: 'Já tive meu bebê' }
+    ]
+  },
+  // Quando a mãe começou escrevendo e a IA não conseguiu saber se ela está grávida ou já teve o bebê.
+  perg_ctx: {
+    p: ['Contexto'],
+    msgs: [{ t: 'Pra eu te ajudar melhor: você tá grávida ou já teve o neném?' }],
     opts: [
       { l: 'Estou grávida', a: () => { uCtx = 'gravida'; }, n: 'menu', u: 'Estou grávida' },
       { l: 'Já tive meu bebê', a: () => { uCtx = 'pos'; }, n: 'menu', u: 'Já tive meu bebê' }
@@ -344,9 +360,11 @@ const F = {
       { l: '🛡️  Meus direitos no SUS', n: 'd_pos' },
       { l: '🤱  Amamentação', n: 'amamentacao' },
       { l: '👶  Dúvida sobre o bebê', n: 'bebe_menu' },
+      { l: '🩹  Meu corpo depois do parto', n: 'pos_menu' },
       { l: '💬  Tô me sentindo estranha...', n: 'sm_oq' },
       { l: '❓  Tenho uma dúvida / benefícios', n: 'duvida' }
     ] : [
+      { l: '🤰  Gravidez e parto', n: 'grav_menu' },
       { l: '🛡️  Meus direitos no SUS', n: 'd_quando' },
       { l: '💬  Tô me sentindo estranha...', n: 'sm_oq' },
       { l: '📋  Checklist de consultas', n: 'ck_sem' },
@@ -362,6 +380,7 @@ const F = {
     opts: [
       { l: '🤰  No pré-natal', n: 'd_pre' },
       { l: '🏥  Na hora do parto', n: 'd_parto' },
+      { l: '⚠️  Violência obstétrica', n: 'd_violencia_obst' },
       { l: '⬅️  Voltar', n: 'menu' }
     ]
   },
@@ -426,6 +445,7 @@ const F = {
     ],
     opts: [
       { l: '✍️  Sim, me dá o roteiro', n: 'd_roteiro' },
+      { l: '⚠️  Isso foi violência obstétrica?', n: 'd_violencia_obst' },
       { l: '⬅️  Voltar ao menu', n: 'menu' }
     ]
   },
@@ -468,6 +488,7 @@ const F = {
       { l: '🤒  Acho que tô com mastite', n: 'am_mastite' },
       { l: '😟  Acho que leite tá pouco', n: 'am_leite' },
       { l: '❓  Por quanto tempo preciso amamentar?', n: 'am_quanto' },
+      { l: '⛔  Quando não amamentar', n: 'am_quando_nao' },
       { l: '⬅️  Voltar', n: 'menu' }
     ]
   },
@@ -558,6 +579,7 @@ const F = {
       { l: '💉  Vacinas do bebê', n: 'bebe_vacinas' },
       { l: '📈  Desenvolvimento mês a mês', n: 'bebe_dev' },
       { l: '🥣  Introdução alimentar', n: 'bebe_alim' },
+      { l: '👣  Testes do pezinho, olhinho e orelhinha', n: 'bebe_testes' },
       { l: '🚨  Tô preocupada com ele', n: 'bebe_alerta' },
       { l: '⬅️  Voltar', n: 'menu' }
     ]
@@ -736,11 +758,14 @@ const F = {
       { l: '😓  Esgotamento total', n: 'sm_esgotada' },
       { l: '🫂  Solidão', n: 'sm_sozinha' },
       { l: '😴  Não consigo dormir (mesmo quando o bebê dorme)', n: 'sm_sono' },
+      { l: '📞  Onde buscar ajuda', n: 'sm_onde_ajuda' },
       { l: '⬅️  Voltar', n: 'menu' }
     ] : [
       { l: '😢  Tristeza, choro sem motivo', n: 'sm_triste' },
       { l: '😰  Medo do parto', n: 'sm_medo_grav' },
-      { l: '😓  Esgotamento / ansiedade', n: 'sm_esgotada' },
+      { l: '😓  Esgotamento', n: 'sm_esgotada' },
+      { l: '😟  Ansiedade', n: 'sm_ansiedade' },
+      { l: '📞  Onde buscar ajuda', n: 'sm_onde_ajuda' },
       { l: '🫂  Solidão', n: 'sm_sozinha' },
       { l: '⬅️  Voltar', n: 'menu' }
     ]
@@ -939,6 +964,243 @@ const F = {
     ]
   },
 
+  // ───────── TEMAS NOVOS (v5.1) ─────────
+  // Escritos a partir da research/base-conhecimento.md (módulos 1, 2, 3, 4.5, 5, 6.4, 6.5, 7.8, 8.1, 9.2).
+  // PENDENTE: revisão clínica por enfermeira obstétrica antes de usuárias reais.
+
+  grav_menu: {
+    p: ['Gravidez e parto'],
+    msgs: [{ t: 'Sobre a gravidez e a hora do parto, o que você quer saber?' }],
+    opts: [
+      { l: '🩺  Quando começar o pré-natal', n: 'pre_inicio' },
+      { l: '💉  Vacinas da gestante', n: 'vac_gest' },
+      { l: '🥗  O que comer e o que evitar', n: 'alim_grav' },
+      { l: '⏱️  Como saber se é a hora do parto', n: 'parto_sinais' },
+      { l: '🎒  O que levar pra maternidade', n: 'parto_mala' },
+      { l: '🏥  Como é o trabalho de parto', n: 'parto_etapas' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  pre_inicio: {
+    p: ['Gravidez', 'Começar o pré-natal'],
+    msgs: [
+      { t: 'O pré-natal começa assim que você descobre a gravidez. Pode ser no mesmo dia 💙' },
+      { t: 'Qualquer posto faz, de graça e sem encaminhamento. Só precisa levar um documento com foto.' },
+      { t: 'O mínimo pelo SUS são 6 consultas: 1 no começo da gravidez, 2 no meio e 3 no final. O ideal é uma por mês, e mais seguido no final.' }
+    ],
+    opts: [
+      { l: '📋  Quais exames eu faço', n: 'ck_sem' },
+      { l: '🛡️  Meus direitos no pré-natal', n: 'd_pre' },
+      { l: '⬅️  Voltar', n: 'grav_menu' }
+    ]
+  },
+  vac_gest: {
+    p: ['Gravidez', 'Vacinas da gestante'],
+    msgs: [
+      { t: 'Vacina na gravidez protege você e passa proteção pro neném antes dele nascer. Todas são de graça no posto:' },
+      { t: '💉 dTpa (difteria, tétano e coqueluche): 1 dose a partir da 20ª semana\n💉 Gripe: 1 dose, em qualquer fase da gravidez\n💉 COVID-19: atualizar a cada gravidez\n💉 VSR: protege o neném de infecção respiratória grave nos primeiros meses\n💉 Hepatite B: se você ainda não tomou todas as doses' },
+      { t: 'Leva a Caderneta da Gestante pra anotarem cada dose.' }
+    ],
+    opts: [
+      { l: '📋  Exames do pré-natal', n: 'ck_sem' },
+      { l: '⬅️  Voltar', n: 'grav_menu' }
+    ]
+  },
+  alim_grav: {
+    p: ['Gravidez', 'Alimentação'],
+    msgs: [
+      { t: 'Na gravidez, alguns cuidados com a comida protegem você e o neném.' },
+      { t: '🚫 Evita:\n• Ovo cru ou mole e carne malpassada\n• Atum, cação e peixe-espada (têm mercúrio)\n• Queijos moles com fungo (brie, camembert, gorgonzola)\n• Leite que não é pasteurizado\n• Bebida alcoólica: nenhuma quantidade é segura' },
+      { t: '✅ Ajuda:\n• Folhas verde-escuras, feijão e lentilha (ácido fólico)\n• Carne magra bem passada e feijão com uma fruta com vitamina C (ferro)\n• Leite, iogurte, queijo branco e couve (cálcio)\n• Frutas, verduras e cereais integrais' },
+      { t: 'Fruta e verdura crua: lava bem e deixa 10 minutos de molho com 1 colher de água sanitária em 1 litro de água.' }
+    ],
+    opts: [
+      { l: '⬅️  Voltar', n: 'grav_menu' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  pre_eclampsia: {
+    p: ['Gravidez', 'Pré-eclâmpsia'],
+    msgs: [
+      { t: 'Pré-eclâmpsia é pressão alta na gravidez, com perda de proteína na urina. É grave e precisa de hospital.' },
+      { t: '🚨 Vai à maternidade se tiver:\n🔴 Inchaço que aparece de repente no rosto, nas mãos ou nas pernas\n🔴 Dor de cabeça que não passa\n🔴 Visão embaçada ou pontinhos brilhando\n🔴 Dor em cima do estômago\n\nNão espera a próxima consulta.\n📞 SAMU: 192', alerta: true }
+    ],
+    opts: [
+      { l: '🚨  Ligar pro SAMU — 192', tel: '192', n: 'menu', danger: true },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  parto_sinais: {
+    p: ['Parto', 'Hora do parto'],
+    msgs: [
+      { t: 'Nem toda contração quer dizer que chegou a hora.' },
+      { t: 'Falso parto: contrações irregulares, que somem quando você muda de posição ou caminha e não ficam mais fortes.' },
+      { t: 'Parto de verdade, a regra 5-1-1:\n⏱️ Contração a cada 5 minutos\n⏱️ Durando 1 minuto cada\n⏱️ Por pelo menos 1 hora seguida\n\nNo primeiro filho, espera chegar nesse ritmo antes de ir.' },
+      { t: '🚨 Vai na hora se a bolsa romper, se tiver sangramento forte, se o neném parar de mexer ou se as contrações vierem a cada 2 ou 3 minutos.', alerta: true }
+    ],
+    opts: [
+      { l: '🎒  O que levar pra maternidade', n: 'parto_mala' },
+      { l: '🛡️  Meus direitos no parto', n: 'd_parto' },
+      { l: '⬅️  Voltar', n: 'grav_menu' }
+    ]
+  },
+  parto_mala: {
+    p: ['Parto', 'O que levar'],
+    msgs: [
+      { t: 'Deixa a bolsa pronta a partir de 36 semanas:' },
+      { t: '🎒 Caderneta da Gestante\n🎒 RG, CPF e cartão do SUS\n🎒 Documento do seu acompanhante\n🎒 Roupa confortável pro parto\n🎒 Suas coisas de higiene\n🎒 Plano de parto impresso em 2 vias: uma pra equipe, outra pro acompanhante' }
+    ],
+    opts: [
+      { l: '📝  O que é plano de parto?', n: 'plano_parto' },
+      { l: '⬅️  Voltar', n: 'grav_menu' }
+    ]
+  },
+  parto_etapas: {
+    p: ['Parto', 'Como é o trabalho de parto'],
+    msgs: [
+      { t: 'O trabalho de parto tem 4 fases:' },
+      { t: '1️⃣ Começo: contrações irregulares e o colo do útero abre devagar, até 4 cm. Pode demorar, e dá pra ficar em casa.\n2️⃣ Fase ativa: contrações regulares e fortes, o colo abre de 4 a 10 cm. Geralmente já na maternidade.\n3️⃣ Expulsão: é a hora de fazer força, e o neném nasce.\n4️⃣ Placenta: ela sai alguns minutos depois do neném.' },
+      { t: 'Você pode pedir anestesia a qualquer momento. É seu direito, e não precisa sofrer pra "ser mais mãe".' }
+    ],
+    opts: [
+      { l: '⏱️  Como saber se é a hora', n: 'parto_sinais' },
+      { l: '🛡️  Meus direitos no parto', n: 'd_parto' },
+      { l: '⬅️  Voltar', n: 'grav_menu' }
+    ]
+  },
+  d_violencia_obst: {
+    p: ['Direitos', 'Violência obstétrica'],
+    msgs: [
+      { t: 'Violência obstétrica é qualquer coisa que te machuque, no corpo ou no emocional, no pré-natal, no parto ou depois.' },
+      { t: 'Alguns exemplos:\n• Gritar, xingar ou humilhar\n• Fazer procedimento sem explicar ou sem pedir sua autorização\n• Barrar seu acompanhante\n• Corte no períneo sem necessidade e sem você concordar\n• Cesárea imposta contra a sua vontade\n• Negar alívio da dor\n• Empurrar a sua barriga pra "ajudar" o neném a sair (é proibido no Brasil)' },
+      { t: 'Pra denunciar:\n📞 136 — Disque Saúde\n🌐 ouvidoria.saude.gov.br\n🏛️ Conselho Regional de Medicina (CRM) do seu estado' }
+    ],
+    opts: [
+      { l: '✍️  O que falar na hora', n: 'd_roteiro' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+
+  pos_menu: {
+    p: ['Meu corpo depois do parto'],
+    msgs: [{ t: 'O resguardo dura até uns 42 dias. O que você quer saber sobre o seu corpo agora?' }],
+    opts: [
+      { l: '🩸  Sangramento depois do parto', n: 'pos_sangramento' },
+      { l: '🩹  Recuperação do parto normal', n: 'pos_normal' },
+      { l: '🩹  Recuperação da cesárea', n: 'pos_cesarea' },
+      { l: '💊  Evitar outra gravidez agora', n: 'pos_anticoncepcao' },
+      { l: '💼  Volta ao trabalho', n: 'pos_trabalho' },
+      { l: '⬅️  Voltar', n: 'menu' }
+    ]
+  },
+  pos_sangramento: {
+    p: ['Pós-parto', 'Sangramento'],
+    msgs: [
+      { t: 'Sangrar depois do parto é normal. Esse sangramento se chama lóquio e muda com os dias:' },
+      { t: '🩸 Dias 1 a 4: vermelho vivo, como uma menstruação forte\n🩸 Dias 5 a 10: marrom clarinho ou rosado\n🩸 Depois: amarelado ou branco\n\nCostuma durar de 4 a 6 semanas, um pouco menos na cesárea.' },
+      { t: '🚨 Vai ao médico se sair sangue em chumaço, se tiver cheiro ruim, se vier febre junto ou se o sangramento aumentar depois de ter diminuído.', alerta: true }
+    ],
+    opts: [
+      { l: '🚨  Ligar pro SAMU — 192', tel: '192', n: 'menu', danger: true },
+      { l: '⬅️  Voltar', n: 'pos_menu' }
+    ]
+  },
+  pos_normal: {
+    p: ['Pós-parto', 'Parto normal'],
+    msgs: [
+      { t: 'Depois do parto normal, a maioria das mães se sente bem em 2 a 4 semanas.' },
+      { t: 'Se levou ponto: mantém bem limpinho, e banho de assento morno pode aliviar.' },
+      { t: 'Evita esforço e relação sexual nas primeiras 4 a 6 semanas.' },
+      { t: 'E não esquece da consulta de revisão no posto, até 42 dias depois do parto. É de graça e quase ninguém vai 💙' }
+    ],
+    opts: [
+      { l: '🛡️  Meus direitos depois do parto', n: 'd_pos' },
+      { l: '⬅️  Voltar', n: 'pos_menu' }
+    ]
+  },
+  pos_cesarea: {
+    p: ['Pós-parto', 'Cesárea'],
+    msgs: [
+      { t: 'Cesárea é uma cirurgia grande, então o seu corpo precisa de tempo.' },
+      { t: '🩹 A pele fecha em mais ou menos 1 semana, mas por dentro leva 6 semanas\n🩹 O resguardo é de 40 a 60 dias\n🩹 Nas primeiras semanas, não pega nada mais pesado que o neném\n🩹 Relação sexual: espera o médico liberar, geralmente em 6 semanas' },
+      { t: '🚨 Vai ao posto se a cicatriz ficar vermelha, tiver pus, abrir ou vier febre.', alerta: true }
+    ],
+    opts: [
+      { l: '⬅️  Voltar', n: 'pos_menu' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+  pos_anticoncepcao: {
+    p: ['Pós-parto', 'Evitar gravidez'],
+    msgs: [
+      { t: 'O recomendado é esperar pelo menos 18 meses antes de engravidar de novo.' },
+      { t: 'Amamentar não é um jeito seguro de evitar gravidez. Só funciona se for tudo junto: só peito, de dia e de noite, a menstruação ainda não voltou e o neném tem menos de 6 meses.' },
+      { t: 'Métodos de graça no posto que não atrapalham a amamentação:\n💊 Minipílula\n💉 Injeção de 3 em 3 meses (depois de 6 semanas do parto)\n🔹 DIU de cobre\n🛡️ Camisinha\n\nA pílula comum, com estrogênio, não é indicada nas primeiras 6 semanas pra quem amamenta, porque pode diminuir o leite.' }
+    ],
+    opts: [
+      { l: '🛡️  Meus direitos depois do parto', n: 'd_pos' },
+      { l: '⬅️  Voltar', n: 'pos_menu' }
+    ]
+  },
+  pos_trabalho: {
+    p: ['Pós-parto', 'Volta ao trabalho'],
+    msgs: [
+      { t: 'Com carteira assinada, você não pode ser demitida desde que a gravidez foi confirmada até 5 meses depois do parto.' },
+      { t: 'A licença começa no parto ou antes, se o médico recomendar. Com atestado, dá pra começar a partir da 28ª semana.' }
+    ],
+    opts: [
+      { l: '📋  Quanto tempo de licença eu tenho', n: 'ben_licenca' },
+      { l: '⬅️  Voltar', n: 'pos_menu' }
+    ]
+  },
+
+  bebe_testes: {
+    p: ['Bebê', 'Testes do recém-nascido'],
+    msgs: [
+      { t: 'Logo que o neném nasce, ele tem direito a alguns testes. Todos de graça no SUS:' },
+      { t: '👣 Pezinho: do 3º ao 5º dia de vida. Pega várias doenças cedo\n👁️ Olhinho: na maternidade. Vê catarata e outros problemas nos olhos\n👂 Orelhinha: nos primeiros 7 dias. Vê se ele escuta bem\n❤️ Coraçãozinho: de 24 a 48 horas de vida. Vê problemas no coração\n👅 Linguinha: na maternidade, quando tem. Vê se a língua está presa e pode atrapalhar a mamada' },
+      { t: 'Se algum não foi feito, pede no posto.' }
+    ],
+    opts: [
+      { l: '💉  Vacinas do bebê', n: 'bebe_vacinas' },
+      { l: '⬅️  Outras dúvidas do bebê', n: 'bebe_menu' }
+    ]
+  },
+  am_quando_nao: {
+    p: ['Amamentação', 'Quando não amamentar'],
+    msgs: [
+      { t: 'São poucos os casos em que não se deve amamentar:' },
+      { t: '• Mãe com HIV, porque o vírus pode passar pelo leite\n• Alguns remédios que não combinam com a amamentação. Quem decide é o médico, e ele indica a fórmula\n• Bebê com galactosemia, uma doença rara que aparece no teste do pezinho' },
+      { t: 'Fora desses casos, se alguém te disser pra parar de amamentar, confirma com o médico do posto.' }
+    ],
+    opts: [
+      { l: '⬅️  Outras dúvidas de amamentação', n: 'amamentacao' }
+    ]
+  },
+  sm_ansiedade: {
+    p: ['Saúde mental', 'Ansiedade na gravidez'],
+    msgs: [
+      { t: 'Ansiedade na gravidez é muito comum: medo pelo neném, pelo parto, de não ser uma boa mãe.' },
+      { t: 'O que ajuda: respirar devagar, conversar com alguém de confiança e participar de grupo de gestantes no posto, onde outras mães passam pelo mesmo.' },
+      { t: 'Se a ansiedade estiver muito forte ou te travando, pede no posto pra ser encaminhada pra psicólogo. É de graça pelo SUS.' }
+    ],
+    opts: [
+      { l: '📞  Onde buscar ajuda', n: 'sm_onde_ajuda' },
+      { l: '⬅️  Voltar', n: 'sm_oq' }
+    ]
+  },
+  sm_onde_ajuda: {
+    p: ['Saúde mental', 'Onde buscar ajuda'],
+    msgs: [
+      { t: 'Tem ajuda de graça pelo SUS:' },
+      { t: '🏥 Posto de saúde: é por onde começa. Pede pra falar com alguém sobre como você tá se sentindo\n🧠 CAPS: pra casos mais fortes, com psicólogo e psiquiatra\n🏠 Agente comunitária de saúde: pode ir até a sua casa\n🤝 CRAS: apoio social e benefícios\n📞 CVV: 188, 24h, pra conversar agora\n🚨 SAMU: 192, se for emergência' }
+    ],
+    opts: [
+      { l: '✍️  O que falar no posto', n: 'sm_como_pedir' },
+      { l: '⬅️  Voltar ao menu', n: 'menu' }
+    ]
+  },
+
   fim: {
     p: ['Encerramento'],
     msgs: [
@@ -1007,7 +1269,7 @@ function pick(opt) {
   if (opt.u) push(opt.u, false, null, false);
   if (opt.fn) { opt.fn(); return; }
   if (opt.tel) location.href = 'tel:' + opt.tel;
-  mostrar(opt.n);
+  mostrar(typeof opt.n === 'function' ? opt.n(uCtx) : opt.n);
 }
 
 // Memória curta da conversa: o que a mãe escreveu e o NOME dos tópicos que o bot mostrou
@@ -1020,8 +1282,8 @@ function mostrar(id) { mostrarVarios([id]); }
 
 // Mostra um ou mais estados em sequência (quando a mãe faz várias perguntas numa mensagem).
 // "extras" são botões a mais antes das opções do último estado.
-function mostrarVarios(ids, extras = []) {
-  const msgs = [];
+function mostrarVarios(ids, extras = [], intro = []) {
+  const msgs = [...intro];
   ids.forEach((id, k) => {
     const f = gf(id);
     if (f.p) path.push(f.p[f.p.length - 1]);
@@ -1030,7 +1292,6 @@ function mostrarVarios(ids, extras = []) {
     msgs.push(...gm(id));
   });
   cur = ids[ids.length - 1];
-  document.getElementById('livre').classList.toggle('on', !!uCtx);
   falarEmSequencia(msgs, () => { renderOpts([...extras, ...go(cur)]); upd(); });
 }
 
@@ -1038,8 +1299,28 @@ function mostrarVarios(ids, extras = []) {
 // Ordem: 1) regra fixa de emergência (sem IA, sem internet)  2) IA escolhe o tópico
 // 3) o bot mostra a resposta JÁ ESCRITA daquele tópico. Na dúvida, volta pros botões.
 
-const SAMU = { l: '🚨  Ligar pro SAMU — 192', tel: '192', danger: true, n: 'menu' };
-const MENU = { l: '⬅️  Ver as opções', n: 'menu' };
+// Pra onde voltar: o menu, ou a pergunta de contexto se ainda não sabemos se ela está grávida.
+const destino = c => c ? 'menu' : 'perg_ctx';
+const SAMU = { l: '🚨  Ligar pro SAMU — 192', tel: '192', danger: true, n: destino };
+const MENU = { l: '⬅️  Ver as opções', n: destino };
+
+// Frases de acolhimento. A IA só escolhe o id (api/_topicos.js); o texto é fixo e revisável.
+const ACOLHE = {
+  dificil: 'Sinto muito que você esteja passando por isso 💙',
+  cansaco: 'Cansaço assim pesa demais. Você tá fazendo o melhor que pode 💙',
+  medo: 'É normal sentir medo. Vamos ver isso juntas 💙',
+  preocupacao: 'Entendo a sua preocupação. Vou te mostrar o que eu sei 💙',
+  injustica: 'Você tem razão de ficar chateada. Isso não deveria acontecer.',
+  sozinha: 'Você não tá sozinha. Tô aqui com você 💙'
+};
+
+const SEI_FALAR = 'Eu sei te ajudar com seus direitos no SUS, amamentação, cuidados com o neném, benefícios, exames do pré-natal e como você tá se sentindo.';
+
+function responderFixo(textos) {
+  const d = destino(uCtx);
+  cur = d;
+  falarEmSequencia(textos.map(t => ({ t })), () => { renderBtns(d); upd(); });
+}
 
 function falarEmSequencia(msgs, depois) {
   msgs.forEach((m, i) => setTimeout(() => push(m.t, true, m.card, m.alerta), 200 + i * 300));
@@ -1050,8 +1331,7 @@ function naoEntendi(motivo) {
   const t = motivo === 'erro'
     ? 'Agora não consegui ler mensagem escrita 😕 Mas você pode escolher uma opção aqui embaixo:'
     : 'Não entendi direito 💙 Escolhe uma opção aqui embaixo que eu te ajudo:';
-  cur = 'menu';
-  falarEmSequencia([{ t }], () => { renderBtns('menu'); upd(); });
+  responderFixo([t]);
 }
 
 function mostrarEmergencia(em, texto) {
@@ -1062,12 +1342,12 @@ function mostrarEmergencia(em, texto) {
   let msgs, opts;
   if (em.tipo === 'mental') {
     msgs = [{ t: 'Obrigada por me contar. Isso é sério e você merece ajuda agora 💙' }, { card: 'EMERG_MENTAL', alerta: true }];
-    opts = [SAMU, { l: '📞  Ligar pro CVV — 188', tel: '188', n: 'menu' }, MENU];
+    opts = [SAMU, { l: '📞  Ligar pro CVV — 188', tel: '188', n: destino }, MENU];
   } else if (em.tipo === 'violencia') {
     msgs = [{ t: 'Obrigada por confiar isso a mim. Você não merece passar por isso 💜' }, { card: 'EMERG_VIOLENCIA', alerta: true }];
-    opts = [{ l: '📞  Ligar pra Central da Mulher — 180', tel: '180', danger: true, n: 'menu' }, { l: '🚨  Tô em perigo agora — 190', tel: '190', danger: true, n: 'menu' }, MENU];
+    opts = [{ l: '📞  Ligar pra Central da Mulher — 180', tel: '180', danger: true, n: destino }, { l: '🚨  Tô em perigo agora — 190', tel: '190', danger: true, n: destino }, MENU];
   } else {
-    const card = em.tipo === 'bebe' ? 'ALERTA_BEBE' : em.tipo === 'gravidez' ? 'ALERTA_GRAV' : 'EMERG_POS';
+    const card = em.tipo === 'bebe' ? 'ALERTA_BEBE' : em.tipo === 'gravidez' ? 'ALERTA_GRAV' : uCtx ? 'EMERG_POS' : 'EMERG_GERAL';
     msgs = [{ t: 'Pelo que você escreveu, pode ser urgente. Olha isso primeiro:' }, { card, alerta: true }, { t: 'Se for algum desses, não espera. Procura atendimento agora.' }];
     opts = [SAMU, naoUrgente, MENU];
   }
@@ -1090,51 +1370,69 @@ async function classificarTexto(texto) {
   let r = null;
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12000);
+    // O plano gratuito às vezes demora; avisa e espera até 25s antes de voltar pros botões.
+    const lento = setTimeout(() => { aviso.textContent = 'só um instantinho, tô lendo sua mensagem…'; }, 5000);
+    const timer = setTimeout(() => ctrl.abort(), 25000);
     const resp = await fetch(API_CLASSIFICAR, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texto, contexto: uCtx, historico: anteriores }),
       signal: ctrl.signal
     });
-    clearTimeout(timer);
+    clearTimeout(timer); clearTimeout(lento);
     if (resp.ok) r = await resp.json();
   } catch (e) { /* sem rede ou demorou: cai nos botões */ }
   aviso.remove();
   enviar.disabled = false;
 
   if (!r) return naoEntendi('erro');
-  const uteis = (r.topicos || []).filter(t => F[t.topico] && t.topico !== 'nenhum' && t.confianca !== 'baixa');
-  if (!uteis.length) return naoEntendi();
 
-  const altas = uteis.filter(t => t.confianca === 'alta').map(t => t.topico);
-  const medias = uteis.filter(t => t.confianca === 'media').map(t => t.topico);
+  // Ela começou escrevendo: a IA deduz se está grávida ou já teve o bebê (só preenche se ainda não sabemos).
+  if (!uCtx && (r.contexto_inferido === 'gravida' || r.contexto_inferido === 'pos')) { uCtx = r.contexto_inferido; upd(); }
+
+  if (r.tipo === 'cumprimento') return responderFixo(['Oi! 💙 Me conta sua dúvida do seu jeito, ou escolhe uma opção aqui embaixo.']);
+  if (r.tipo === 'fora_do_escopo') return responderFixo([
+    'Disso eu ainda não sei falar 😕',
+    SEI_FALAR,
+    'Pra outras dúvidas de saúde, você pode ligar no Disque Saúde: 136.'
+  ]);
+
+  const validos = (r.topicos || []).filter(t => F[t.topico] && t.topico !== 'nenhum');
+  const de = nivel => validos.filter(t => t.confianca === nivel).map(t => t.topico);
+  const altas = de('alta'), medias = de('media'), baixas = de('baixa');
+  const intro = ACOLHE[r.acolhimento] ? [{ t: ACOLHE[r.acolhimento] }] : [];
+  const nao = { l: '❌  Nenhum desses, quero ver as opções', n: destino };
+  const botoes = ids => ids.map(id => ({ l: `💬  ${nomeTopico(id)}`, n: id }));
 
   if (altas.length) {
     // Confiança alta: responde direto. As de confiança média viram botões de "Também".
-    push(altas.length > 1 ? 'Você perguntou mais de uma coisa. Vou por partes 💙' : 'Entendi. Olha o que eu sei sobre isso:', true);
-    return mostrarVarios(altas, medias.map(id => ({ l: `💬  Também: ${nomeTopico(id)}`, n: id })));
+    intro.push({ t: altas.length > 1 ? 'Você perguntou mais de uma coisa. Vou por partes 💙' : 'Olha o que eu sei sobre isso:' });
+    return mostrarVarios(altas, medias.map(id => ({ l: `💬  Também: ${nomeTopico(id)}`, n: id })), intro);
   }
-  // Só confiança média: confirma antes de responder.
-  const nao = { l: '❌  Não, quero ver as opções', n: 'menu' };
   if (medias.length === 1) {
-    return falarEmSequencia([{ t: `Você quer saber sobre "${nomeTopico(medias[0])}"?` }],
-      () => renderOpts([{ l: '✅  Sim, é isso', n: medias[0] }, nao]));
+    // Confiança média: confirma antes de responder.
+    return falarEmSequencia([...intro, { t: `Você quer saber sobre "${nomeTopico(medias[0])}"?` }],
+      () => renderOpts([{ l: '✅  Sim, é isso', n: medias[0] }, { ...nao, l: '❌  Não, quero ver as opções' }]));
   }
-  falarEmSequencia([{ t: 'Acho que é sobre um desses. Qual?' }],
-    () => renderOpts([...medias.map(id => ({ l: `💬  ${nomeTopico(id)}`, n: id })), nao]));
+  if (medias.length || baixas.length) {
+    // Nada certo: em vez do menu inteiro, oferece só os temas mais próximos.
+    const proximos = [...medias, ...baixas].slice(0, 3);
+    return falarEmSequencia([...intro, { t: 'Não tenho certeza se entendi 💙 Seria algum desses?' }],
+      () => renderOpts([...botoes(proximos), nao]));
+  }
+  naoEntendi();
 }
 
 function enviarTexto(ev) {
   ev.preventDefault();
   const input = document.getElementById('livre-txt');
   const texto = input.value.trim();
-  if (!texto || !uCtx) return;
+  if (!texto) return;
   input.value = '';
   push(texto, false);
   lembrar('mae', texto);
   document.getElementById('btns').innerHTML = '';
-  const em =MareEmergencia.detectarEmergencia(texto, uCtx);
+  const em = MareEmergencia.detectarEmergencia(texto, uCtx);
   if (em) return mostrarEmergencia(em, texto);
   classificarTexto(texto);
 }
@@ -1144,7 +1442,6 @@ function reset() {
   uCtx = null; cur = 'welcome'; path = ['Boas-vindas']; historico = [];
   document.getElementById('chat').innerHTML = '';
   document.getElementById('btns').innerHTML = '';
-  document.getElementById('livre').classList.remove('on');
   upd();
   init();
 }
@@ -1154,7 +1451,10 @@ function init() {
   msgs.forEach((m, i) => {
     setTimeout(() => push(m.t, true, null, false), i * 400);
   });
-  setTimeout(() => renderBtns('welcome'), msgs.length * 400 + 200);
+  setTimeout(() => {
+    renderBtns('welcome');
+    document.getElementById('livre').classList.add('on'); // dá pra começar escrevendo
+  }, msgs.length * 400 + 200);
   upd();
 }
 

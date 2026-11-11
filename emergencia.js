@@ -41,6 +41,8 @@
     if (VIOLENCIA.test(t)) return { tipo: 'violencia' };
     if (!FISICO.some(r => r.test(t))) return null;
     if (/engasg/.test(t)) return { tipo: 'engasgo' };
+    // Sinais que só existem na gravidez (bolsa, bebê que não mexe, contração): vale mesmo sem saber o contexto.
+    if (contexto !== 'pos' && (FISICO[2].test(t) || FISICO[3].test(t) || /contracao/.test(t))) return { tipo: 'gravidez' };
     const falaDoBebe = BEBE.test(t + ' ');
     if (falaDoBebe && contexto !== 'gravida') return { tipo: 'bebe' };
     if (contexto === 'gravida') return { tipo: 'gravidez' };
