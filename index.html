@@ -6,32 +6,64 @@
 <title>Maré — Protótipo do Bot WhatsApp</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --page: #e9edef; --ink: #111b21; --muted: #54656f; --line: #d1d7db;
+    --wa: #00a884; --wa-ink: #007a63;
+  }
+  html, body { height: 100%; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #111b21;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--page);
+    color: var(--ink);
     display: flex;
     justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
-    padding: 24px 16px;
-    gap: 24px;
+    align-items: center;
+    gap: 40px;
+    padding: 24px;
+    overflow: hidden; /* no computador quem rola é só a conversa, nunca a página */
   }
 
-  /* PHONE FRAME */
+  /* APARELHO: moldura de celular com a tela do WhatsApp dentro */
   .phone {
-    width: 380px;
-    min-height: 680px;
-    background: #0b141a;
-    border-radius: 24px;
+    position: relative;
+    width: 390px;
+    height: min(844px, calc(100dvh - 48px));
+    padding: 12px;
+    background: #1c1c1e;
+    border-radius: 56px;
+    box-shadow: 0 0 0 2px #3a3a3c, 0 30px 70px rgba(17,27,33,.35);
+    flex-shrink: 0;
+  }
+  .phone::before, .phone::after { /* botões laterais */
+    content: ""; position: absolute; width: 4px; background: #2c2c2e; border-radius: 2px;
+  }
+  .phone::before { left: -4px; top: 150px; height: 60px; box-shadow: 0 80px 0 #2c2c2e; }
+  .phone::after { right: -4px; top: 200px; height: 90px; }
+  .screen {
+    position: relative;
+    width: 100%; height: 100%;
+    border-radius: 44px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 24px 60px rgba(0,0,0,.6);
-    flex-shrink: 0;
+    background: #0b141a;
   }
+  .statusbar {
+    height: 44px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px 0 34px;
+    background: #202c33; color: #e9edef;
+    font-size: 14px; font-weight: 600;
+    position: relative;
+  }
+  .island { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: 110px; height: 30px; border-radius: 20px; background: #000; }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  .home-bar { height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #0b141a; }
+  .home-bar::after { content: ""; width: 120px; height: 5px; border-radius: 3px; background: #e9edef; opacity: .85; }
   .header {
     background: #202c33;
-    padding: 14px 16px;
+    padding: 8px 12px 10px 8px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -49,7 +81,10 @@
 
   .chat {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding: 12px;
     background: #0b141a;
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23182229' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
@@ -103,7 +138,17 @@
 
   .spacer { height: 6px; }
 
-  .btns { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .btns { padding: 8px 12px 8px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; max-height: 38%; overflow-y: auto; overscroll-behavior: contain; background: #0b141a; }
+  .btns:empty { display: none; }
+  .header-back { color: #aebac1; font-size: 22px; line-height: 1; padding: 0 2px; }
+  .header-acoes { display: flex; gap: 16px; color: #aebac1; }
+  .header-info-btn { display: none; background: none; border: 0; color: #aebac1; font-size: 20px; cursor: pointer; padding: 4px; }
+  .rolar-fim {
+    position: absolute; right: 14px; z-index: 5;
+    width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer;
+    background: #202c33; color: #aebac1; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+  .rolar-fim span { position: absolute; top: -6px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--wa); color: #0b141a; font-size: 11px; font-weight: 700; line-height: 20px; }
   .btn {
     background: #202c33;
     color: #00a884;
@@ -121,7 +166,7 @@
   .btn.danger { color: #ff6b6b; border-color: #5a2020; }
 
   /* TEXTO LIVRE (opcional — os botões continuam sendo o caminho principal) */
-  .livre { display: none; gap: 8px; padding: 0 12px 14px; }
+  .livre { display: none; gap: 8px; padding: 6px 10px 8px; flex-shrink: 0; background: #0b141a; }
   .livre.on { display: flex; }
   .livre input {
     flex: 1; min-width: 0;
@@ -146,125 +191,139 @@
   .bubble.typing.lento { font-size: 13px; font-style: italic; color: #8696a0; }
   @media (prefers-reduced-motion: reduce) { .bubble, .bubble.typing i { animation: none; } }
 
-  /* SIDE PANEL */
+  /* PAINEL: o que está acontecendo, em linguagem simples */
   .panel {
-    width: 300px;
-    background: #1a1a2e;
-    border-radius: 16px;
-    padding: 20px;
-    color: #ccc;
-    font-size: 13px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    align-self: flex-start;
-    position: sticky;
-    top: 24px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    width: 360px;
+    max-height: min(844px, calc(100dvh - 48px));
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 20px;
+    padding: 26px;
+    display: flex; flex-direction: column; gap: 22px;
+    box-shadow: 0 10px 30px rgba(17,27,33,.10);
+    font-size: 15px; line-height: 1.5; color: var(--ink);
   }
-  .panel h3 { color: #e9edef; font-size: 14px; margin-bottom: 8px; }
-  .breadcrumb {
-    background: #0f0f1e;
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 12px;
-    color: #00a884;
-    line-height: 1.6;
+  .panel-topo { display: grid; gap: 6px; }
+  .panel-topo .versao { font-size: 12.5px; font-weight: 600; color: var(--wa-ink); }
+  .panel-topo h1 { font-size: 22px; line-height: 1.2; }
+  .panel-topo p { color: var(--muted); }
+  .panel h2 { font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--muted); margin-bottom: 8px; }
+  .exemplos { display: flex; flex-direction: column; gap: 8px; }
+  .exemplos button {
+    text-align: left; font: inherit; font-size: 14.5px; color: var(--ink); cursor: pointer;
+    background: #f0f2f5; border: 1px solid transparent; border-radius: 10px; padding: 9px 12px;
   }
-  .modules { display: flex; flex-direction: column; gap: 6px; }
-  .module { display: flex; align-items: center; gap: 8px; }
-  .mod-dot { width: 8px; height: 8px; border-radius: 50%; background: #00a884; flex-shrink:0; }
-  .tag {
-    display: inline-block;
-    background: #0f2027;
-    border: 1px solid #00a884;
-    color: #00a884;
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-size: 11px;
-    margin: 2px 2px 0 0;
-  }
-  .info-box {
-    background: #0f0f1e;
-    border-radius: 8px;
-    padding: 12px;
-    font-size: 12px;
-    line-height: 1.6;
-    color: #aaa;
-  }
-  .info-box strong { color: #e9edef; }
+  .exemplos button:hover { border-color: var(--wa); }
+  .exemplos button::before { content: "💬 "; }
+  .agora { display: grid; gap: 10px; background: #f0f2f5; border-radius: 12px; padding: 14px; }
+  .agora div { display: grid; gap: 1px; }
+  .agora dt { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .agora dd { font-size: 15px; }
+  .decisao { border-left: 3px solid var(--wa); padding-left: 10px; }
+  .decisao.ia { border-color: #7c5cff; } .decisao.regra { border-color: #e2412e; }
+  .passos { list-style: none; display: grid; gap: 10px; counter-reset: p; }
+  .passos li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; }
+  .passos li::before { counter-increment: p; content: counter(p); width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
+  .passos b { font-weight: 600; }
   .reset-btn {
-    background: #2a1a1a;
-    border: 1px solid #5a2020;
-    color: #ff6b6b;
-    border-radius: 8px;
-    padding: 8px;
-    font-size: 12px;
-    cursor: pointer;
-    text-align: center;
-    font-family: inherit;
-    transition: background .15s;
+    font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer;
+    background: #fff; color: var(--ink); border: 1.5px solid var(--ink); border-radius: 999px; padding: 10px;
   }
-  .reset-btn:hover { background: #3d1a1a; }
+  .reset-btn:hover { background: var(--ink); color: #fff; }
+  .aviso { font-size: 13px; color: var(--muted); }
+  .fechar-painel { display: none; }
 
-  @media (max-width: 720px) {
-    body { flex-direction: column; align-items: center; }
-    .panel { width: 380px; position: static; }
+  /* Tablet e celular: a conversa ocupa a tela; o painel abre pelo ⓘ do cabeçalho */
+  @media (max-width: 860px) {
+    .panel {
+      display: none; position: fixed; inset: auto 0 0 0; z-index: 20; width: 100%;
+      max-height: 85dvh; border-radius: 20px 20px 0 0; padding-bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+      box-shadow: 0 -10px 40px rgba(0,0,0,.35);
+    }
+    body.painel-aberto .panel { display: flex; }
+    body.painel-aberto::after { content: ""; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10; }
+    .header-info-btn { display: block; }
+    .fechar-painel { display: block; align-self: flex-end; background: none; border: 0; font-size: 22px; cursor: pointer; color: var(--muted); margin: -10px -6px -16px 0; }
+  }
+  @media (max-width: 520px) {
+    body { padding: 0; background: #0b141a; }
+    .phone { width: 100%; height: 100dvh; padding: 0; border-radius: 0; box-shadow: none; background: #0b141a; }
+    .phone::before, .phone::after, .statusbar, .home-bar { display: none; }
+    .screen { border-radius: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: #202c33; }
   }
 </style>
 </head>
 <body>
 
 <div class="phone">
-  <div class="header">
-    <div class="avatar">🌊</div>
-    <div class="header-info">
-      <div class="header-name">Maré</div>
-      <div class="header-sub">Apoio à maternidade · SUS</div>
+  <div class="screen">
+    <div class="statusbar" aria-hidden="true">
+      <span id="relogio">9:41</span>
+      <span class="island"></span>
+      <span class="status-icons">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.2-1.3A10.4 10.4 0 0 0 8 .5C5.2.5 2.7 1.6.8 3.3L2 4.6a8.7 8.7 0 0 1 6-2.4zm0 3.5c1.4 0 2.6.5 3.6 1.4l1.2-1.3A7 7 0 0 0 8 4c-1.9 0-3.6.7-4.8 1.8l1.2 1.3c1-.9 2.2-1.4 3.6-1.4zm0 3.4c.6 0 1.1.2 1.4.6L8 11.5 6.6 9.7c.3-.4.8-.6 1.4-.6z"/></svg>
+        <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="1.8" fill="currentColor"/><rect x="24" y="4" width="1.5" height="4" rx=".75" fill="currentColor" opacity=".5"/></svg>
+      </span>
     </div>
+    <div class="header">
+      <span class="header-back" aria-hidden="true">‹</span>
+      <div class="avatar">🌊</div>
+      <div class="header-info">
+        <div class="header-name">Maré</div>
+        <div class="header-sub">Apoio à maternidade · SUS</div>
+      </div>
+      <button class="header-info-btn" type="button" onclick="abrirPainel()" aria-label="Sobre o protótipo">ⓘ</button>
+    </div>
+    <div class="chat" id="chat" aria-live="polite"></div>
+    <button class="rolar-fim" id="rolarFim" type="button" onclick="rolarParaFim(true)" aria-label="Ir para a última mensagem" hidden>↓<span id="novas" hidden></span></button>
+    <div class="btns" id="btns"></div>
+    <form class="livre" id="livre" autocomplete="off">
+      <input id="livre-txt" maxlength="400" placeholder="Escreve sua dúvida aqui" aria-label="Escreva sua dúvida">
+      <button type="submit" aria-label="Enviar">➤</button>
+    </form>
+    <div class="home-bar" aria-hidden="true"></div>
   </div>
-  <div class="chat" id="chat"></div>
-  <div class="btns" id="btns"></div>
-  <form class="livre" id="livre" autocomplete="off">
-    <input id="livre-txt" maxlength="400" placeholder="Ou escreve sua dúvida aqui" aria-label="Escreva sua dúvida">
-    <button type="submit" aria-label="Enviar">➤</button>
-  </form>
 </div>
 
-<div class="panel">
-  <div>
-    <h3>📍 Caminho atual</h3>
-    <div class="breadcrumb" id="breadcrumb">Boas-vindas</div>
+<aside class="panel" id="painel" aria-label="Sobre o protótipo">
+  <button class="fechar-painel" type="button" onclick="fecharPainel()" aria-label="Fechar">✕</button>
+  <div class="panel-topo">
+    <span class="versao">Protótipo v5.2 · conversa no ritmo do WhatsApp</span>
+    <h1>Maré</h1>
+    <p>Bot de WhatsApp de apoio à maternidade para mães que usam o SUS.</p>
   </div>
-  <div>
-    <h3>🧩 Módulos ativos</h3>
-    <div class="modules">
-      <div class="module"><div class="mod-dot"></div> Boas-vindas & Menu</div>
-      <div class="module"><div class="mod-dot"></div> Direitos no SUS</div>
-      <div class="module"><div class="mod-dot"></div> Sinais de alerta</div>
-      <div class="module"><div class="mod-dot"></div> Saúde mental / DPP</div>
-      <div class="module"><div class="mod-dot"></div> Amamentação</div>
-      <div class="module"><div class="mod-dot"></div> Bebê (0–12 meses)</div>
-      <div class="module"><div class="mod-dot"></div> Benefícios sociais</div>
-      <div class="module"><div class="mod-dot"></div> Checklists pré-natal</div>
+
+  <section>
+    <h2>Teste escrevendo do seu jeito</h2>
+    <div class="exemplos">
+      <button type="button" data-ex="posso levar minha mãe no parto?">posso levar minha mãe no parto?</button>
+      <button type="button" data-ex="meu peito tá rachado e ele chora toda tarde">meu peito tá rachado e ele chora toda tarde</button>
+      <button type="button" data-ex="tô muito cansada, choro todo dia">tô muito cansada, choro todo dia</button>
     </div>
-  </div>
-  <div>
-    <h3>🏷️ Contexto da usuária</h3>
-    <div id="ctx-tags">
-      <span class="tag">aguardando entrada</span>
-    </div>
-  </div>
-  <div class="info-box">
-    <strong>Protótipo v5.2</strong> · conversa no ritmo do WhatsApp<br>
-    ~55 estados · Máquina de estados contextual<br>
-    Texto livre: a IA só escolhe o tópico; a resposta é sempre o texto já escrito. Emergência é regra fixa, sem IA.<br>
-    Contexto: <code>grávida</code> | <code>pós-parto</code><br><br>
-    Projeto de UX Research — <strong>Maré</strong><br>
-    Apoio gratuito à maternidade para mães de baixa renda via WhatsApp.
-  </div>
-  <button class="reset-btn" onclick="reset()">↺ Reiniciar conversa</button>
-</div>
+  </section>
+
+  <section>
+    <h2>O que está acontecendo agora</h2>
+    <dl class="agora">
+      <div><dt>Ela está</dt><dd id="ctx">ainda não sei</dd></div>
+      <div><dt>Assunto</dt><dd id="tema">Boas-vindas</dd></div>
+      <div class="decisao" id="decisaoBox"><dt>Como a última resposta foi escolhida</dt><dd id="decisao">Mensagem de boas-vindas, fixa.</dd></div>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Como funciona</h2>
+    <ol class="passos">
+      <li><span><b>Emergência primeiro, sem IA.</b> Sangramento, bolsa estourada ou violência mostram o alerta na hora.</span></li>
+      <li><span><b>A IA só escolhe o tema</b> entre 63, a partir do que a mãe escreveu.</span></li>
+      <li><span><b>A resposta já estava escrita,</b> a partir de fontes oficiais do SUS. A IA não escreve sobre saúde.</span></li>
+    </ol>
+  </section>
+
+  <button class="reset-btn" type="button" onclick="reset()">↺ Recomeçar a conversa</button>
+  <p class="aviso">Protótipo de estudo, ainda sem teste com mães. Em emergência real, ligue 192.</p>
+</aside>
 
 <script src="emergencia.js"></script>
 <script>
@@ -1245,13 +1304,34 @@ function push(text, isBot, card, alerta) {
   const sp = document.createElement('div');
   sp.className = 'spacer';
   chat.appendChild(sp);
-  rolarParaFim();
+  rolarParaFim(!isBot);
 }
 
-function rolarParaFim() {
+let naoLidas = 0;
+const pertoDoFim = chat => chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80;
+function rolarParaFim(forcar) {
   const chat = document.getElementById('chat');
-  chat.scrollTop = chat.scrollHeight;
+  if (forcar || pertoDoFim(chat) || chat.dataset.seguir !== 'nao') {
+    chat.scrollTo({ top: chat.scrollHeight, behavior: forcar ? 'smooth' : 'auto' });
+    naoLidas = 0;
+  } else naoLidas++;
+  atualizarSetinha();
 }
+function atualizarSetinha() {
+  const chat = document.getElementById('chat');
+  const longe = !pertoDoFim(chat);
+  const seta = document.getElementById('rolarFim');
+  seta.hidden = !longe;
+  seta.style.bottom = (document.getElementById('btns').offsetHeight + document.getElementById('livre').offsetHeight + document.querySelector('.home-bar').offsetHeight + 12) + 'px';
+  const n = document.getElementById('novas');
+  n.hidden = !(longe && naoLidas); n.textContent = naoLidas;
+  if (!longe) naoLidas = 0;
+}
+// Se a mãe subiu para reler, a conversa não puxa ela de volta: aparece a setinha ↓.
+document.getElementById('chat').addEventListener('scroll', e => {
+  e.target.dataset.seguir = pertoDoFim(e.target) ? 'sim' : 'nao';
+  atualizarSetinha();
+}, { passive: true });
 
 // ───────── RITMO DE CONVERSA ─────────
 // Como no WhatsApp: a mensagem da mãe aparece na hora, o bot mostra "digitando…"
@@ -1320,11 +1400,15 @@ function renderOpts(opts) {
 }
 
 function upd() {
-  document.getElementById('breadcrumb').textContent = path.join(' › ');
-  const tags = document.getElementById('ctx-tags');
-  if (uCtx === 'gravida') tags.innerHTML = '<span class="tag">🤰 grávida</span>';
-  else if (uCtx === 'pos') tags.innerHTML = '<span class="tag">👶 pós-parto</span>';
-  else tags.innerHTML = '<span class="tag">aguardando entrada</span>';
+  document.getElementById('tema').textContent = path.slice(-2).join(' › ');
+  document.getElementById('ctx').textContent =
+    uCtx === 'gravida' ? '🤰 grávida' : uCtx === 'pos' ? '👶 no pós-parto' : 'ainda não sei';
+}
+
+// Mostra no painel como a última resposta foi escolhida: botão, IA ou regra fixa.
+function decidir(texto, tipo = '') {
+  document.getElementById('decisao').textContent = texto;
+  document.getElementById('decisaoBox').className = 'decisao ' + tipo;
 }
 
 // Texto do botão como a mãe "mandou": sem o espaço duplo depois do emoji.
@@ -1334,6 +1418,7 @@ function pick(opt) {
   document.getElementById('btns').innerHTML = ''; // some na hora, como resposta rápida
   if (opt.a) opt.a();
   if (!opt.tel) push(textoDoBotao(opt), false, null, false);
+  decidir(opt.fn ? 'Você tocou num botão.' : 'Você tocou num botão. O caminho é fixo, sem IA.');
   if (opt.fn) { opt.fn(); return; }
   if (opt.tel) location.href = 'tel:' + opt.tel;
   mostrar(typeof opt.n === 'function' ? opt.n(uCtx) : opt.n);
@@ -1445,11 +1530,13 @@ async function classificarTexto(texto) {
   esconderDigitando();
   enviar.disabled = false;
 
-  if (!r) return naoEntendi('erro');
+  if (!r) { decidir('A IA não respondeu a tempo. Voltei para os botões.', 'ia'); return naoEntendi('erro'); }
 
   // Ela começou escrevendo: a IA deduz se está grávida ou já teve o bebê (só preenche se ainda não sabemos).
   if (!uCtx && (r.contexto_inferido === 'gravida' || r.contexto_inferido === 'pos')) { uCtx = r.contexto_inferido; upd(); }
 
+  if (r.tipo === 'cumprimento') decidir('A IA entendeu que era um cumprimento. Resposta fixa.', 'ia');
+  if (r.tipo === 'fora_do_escopo') decidir('A IA entendeu que o assunto não é de maternidade. Resposta fixa.', 'ia');
   if (r.tipo === 'cumprimento') return responderFixo(['Oi! 💙 Me conta sua dúvida do seu jeito, ou escolhe uma opção aqui embaixo.']);
   if (r.tipo === 'fora_do_escopo') return responderFixo([
     'Disso eu ainda não sei falar 😕',
@@ -1464,6 +1551,11 @@ async function classificarTexto(texto) {
   const nao = { l: '❌  Nenhum desses, quero ver as opções', n: destino };
   const botoes = ids => ids.map(id => ({ l: `💬  ${nomeTopico(id)}`, n: id }));
 
+  const conf = { alta: 'alta', media: 'média', baixa: 'baixa' };
+  if (altas.length) decidir(`A IA escolheu ${altas.length > 1 ? 'os temas' : 'o tema'} "${altas.map(nomeTopico).join('" e "')}" com confiança alta. O texto da resposta já estava escrito.`, 'ia');
+  else if (medias.length === 1) decidir(`A IA achou que era "${nomeTopico(medias[0])}", com confiança média, e pediu confirmação.`, 'ia');
+  else if (medias.length || baixas.length) decidir('A IA não teve certeza e ofereceu os temas mais próximos.', 'ia');
+  else decidir('A IA não achou um tema. Voltei para os botões.', 'ia');
   if (altas.length) {
     // Confiança alta: responde direto. As de confiança média viram botões de "Também".
     intro.push({ t: altas.length > 1 ? 'Você perguntou mais de uma coisa. Vou por partes 💙' : 'Olha o que eu sei sobre isso:' });
@@ -1493,14 +1585,15 @@ function enviarTexto(ev) {
   lembrar('mae', texto);
   document.getElementById('btns').innerHTML = '';
   const em = MareEmergencia.detectarEmergencia(texto, uCtx);
-  if (em) return mostrarEmergencia(em, texto);
+  if (em) { decidir('Regra fixa de emergência, antes da IA e sem internet.', 'regra'); return mostrarEmergencia(em, texto); }
   classificarTexto(texto);
 }
 document.getElementById('livre').addEventListener('submit', enviarTexto);
 
 function reset() {
   uCtx = null; cur = 'welcome'; path = ['Boas-vindas']; historico = [];
-  conversa++; fala = Promise.resolve(); esconderDigitando();
+  conversa++; fala = Promise.resolve(); esconderDigitando(); fecharPainel();
+  decidir('Mensagem de boas-vindas, fixa.');
   document.getElementById('chat').innerHTML = '';
   document.getElementById('btns').innerHTML = '';
   upd();
@@ -1508,6 +1601,24 @@ function reset() {
 }
 
 const SUB_ORIGINAL = document.querySelector('.header-sub').textContent;
+
+function relogio() {
+  document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+relogio(); setInterval(relogio, 15000);
+
+function abrirPainel() { document.body.classList.add('painel-aberto'); }
+function fecharPainel() { document.body.classList.remove('painel-aberto'); }
+document.addEventListener('click', e => { if (document.body.classList.contains('painel-aberto') && e.target === document.body) fecharPainel(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharPainel(); });
+
+// Exemplos do painel: escrevem na caixa e enviam, como se a mãe tivesse digitado.
+document.querySelectorAll('.exemplos button').forEach(b => b.addEventListener('click', () => {
+  fecharPainel();
+  const input = document.getElementById('livre-txt');
+  input.value = b.dataset.ex;
+  document.getElementById('livre').requestSubmit();
+}));
 
 function init() {
   falarEmSequencia(gm('welcome'), () => {
